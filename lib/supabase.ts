@@ -13,16 +13,19 @@ import type { Database } from "./database.types";
  */
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 // 環境変数の設定漏れは一番よくあるハマりどころなので、
 // 分かりにくいエラーになる前にここで止めて理由を伝える。
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabasePublishableKey) {
   throw new Error(
     "環境変数が設定されていません。プロジェクト直下に .env.local を作り、" +
-      "NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を書いてください。" +
+      "NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY を書いてください。" +
       "（.env.example をコピーするのが早いです。書き換えたら npm run dev を再起動！）",
   );
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(
+  supabaseUrl,
+  supabasePublishableKey,
+);

@@ -65,13 +65,17 @@ cp .env.example .env.local
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxx...
 DEVICE_API_KEY=適当な長い文字列
 ```
 
 **値は槇原に聞いてください**（Slack で共有します）。
-Supabase の URL と anon key は、ダッシュボードの
-**Project Settings > API** からも確認できます。
+Supabase の URL と Publishable key は、ダッシュボードの
+**Project Settings > API Keys** からも確認できます。
+
+> ネットの記事だと `NEXT_PUBLIC_SUPABASE_ANON_KEY` / 「anon key」という名前で
+> 出てくることがあります。Supabase がキーの名前を変えただけで、役割は同じものです。
+> このリポジトリでは今の名前（Publishable key）に揃えています。
 
 > `.env.local` は `.gitignore` に入っているので、Git にはコミットされません。
 > 秘密の値を書いても大丈夫です（逆に、この 3 つを他の場所に書かないこと）。

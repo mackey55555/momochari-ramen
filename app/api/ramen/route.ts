@@ -90,6 +90,19 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("ramen_measurements の insert に失敗:", error);
+
+    // 23503 は PostgreSQL の「外部キー制約違反」＝ shops に無い shop_id を指定した、ということ。
+    // これは送る側のミスなので、サーバー障害（500）ではなく 400 で返して原因を伝える。
+    if (error.code === "23503") {
+      return NextResponse.json(
+        {
+          error:
+            "shop_id に対応するお店が見つかりません。shops テーブルに存在する id を指定してください",
+        },
+        { status: 400 },
+      );
+    }
+
     return NextResponse.json(
       { error: `保存に失敗しました: ${error.message}` },
       { status: 500 },
