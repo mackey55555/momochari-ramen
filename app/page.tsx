@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 
 // Leaflet はブラウザの window / document を直接触るライブラリなので、
 // サーバー側（Next.js のサーバーレンダリング）で実行するとエラーになる。
@@ -14,19 +13,10 @@ const Map = dynamic(() => import("@/components/Map"), {
 });
 
 export default function Home() {
+  // h-full で、サイドメニューの右側いっぱいに地図を広げる。
   return (
-    <main className="relative h-full w-full">
+    <div className="h-full w-full">
       <Map />
-
-      {/* 地図の上に重ねるリンク。
-          Leaflet が地図の部品に z-index 400〜800 を使うので、
-          それより大きい z-index を付けないと地図の下に隠れてしまう。 */}
-      <Link
-        href="/shops"
-        className="absolute top-4 right-4 z-[1000] rounded bg-white px-3 py-2 text-sm shadow hover:bg-gray-100"
-      >
-        店一覧 →
-      </Link>
-    </main>
+    </div>
   );
 }

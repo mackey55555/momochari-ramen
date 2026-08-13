@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -35,17 +34,17 @@ export default async function ShopsPage() {
   // 取得に失敗したとき（URL やキーが間違っている、テーブルが無い、など）
   if (error) {
     return (
-      <main className="p-8">
+      <div className="p-8">
         <h1 className="mb-4 text-2xl font-bold">ラーメン店一覧</h1>
         <p className="text-red-600">
           データの取得に失敗しました: {error.message}
         </p>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-8">
+    <div className="p-8">
       <h1 className="mb-4 text-2xl font-bold">ラーメン店一覧</h1>
 
       {/* データが 0 件のときは、その旨を出しておくと原因調査がラク */}
@@ -72,12 +71,6 @@ export default async function ShopsPage() {
           ))}
         </ul>
       )}
-
-      <p className="mt-8">
-        <Link href="/" className="text-blue-600 underline">
-          ← 地図に戻る
-        </Link>
-      </p>
-    </main>
+    </div>
   );
 }
