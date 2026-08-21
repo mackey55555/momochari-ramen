@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -59,7 +60,9 @@ export default async function ShopsPage() {
               key には他と重複しない値（＝ id）を渡すのが React のお約束。 */}
           {shops.map((shop) => (
             <li key={shop.id} className="py-1">
-              {shop.name}
+              <Link href={`/shops/${shop.id}`} className="text-blue-600 hover:underline">
+                {shop.name}
+              </Link>
               {/* style は null のことがある（NOT NULL じゃないカラム）ので、
                   値があるときだけ出す。 */}
               {shop.style && (
