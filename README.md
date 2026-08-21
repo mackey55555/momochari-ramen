@@ -128,7 +128,7 @@ npm run dev
 | `/measurements` | ラーメン計測（塩分濃度・温度）                                  | **中身は空** |
 | `/rides`        | 走行データ（IoTデバイスから届いた計測点）                       | **中身は空** |
 
-`/measurements` と `/rides` は**枠だけ用意してあります**。中身を作るのが皆さんの Issue です。
+`/measurements` と `/rides` は**枠だけ用意してあります**。中身を作るのが皆さんのタスクです。
 `/` の地図も、走行データの線やお店のピンはまだ出ません。
 
 新しくデータを表示する画面を作るときは、まず `app/shops/page.tsx` を読んでください。
@@ -150,18 +150,31 @@ npm run dev
 `main` は Vercel の本番につながっています。壊れたコードが入ると、そのまま公開されます。
 **必ずブランチを切って PR を出してください。**
 
-### 1 Issue = 1 ブランチ = 1 PR
+### タスクは Notion で管理しています
+
+やることの一覧はこちらです。GitHub の Issue は使っていません。
+
+- [タスク管理（Notion）](https://app.notion.com/p/3fba895665a046a5bfd7cbf846b1732e)
+
+各タスクのページに「やること」「完了の条件」「ヒント」が書いてあります。
+着手するときは、そのタスクの**ステータスを「進行中」に**してください。
+
+### 1 タスク = 1 ブランチ = 1 PR
 
 「あれもこれも」を 1 つの PR に入れないでください。レビューが大変になり、
 何か問題が起きたときに切り戻せなくなります。
 
 ### ブランチ名
 
+Notion のタスク番号を頭に付けます。
+
 ```
-feat/<Issue番号>-<短い説明>
+feat/<タスク番号>-<短い説明>
 ```
 
-例: `feat/12-map-shop-pins`、`feat/7-shop-detail-page`
+例: `feat/04-shop-detail-measurements`、`feat/05-map-shop-pins`
+
+番号が付いていると、ブランチ名から「どのタスクか」がすぐ分かります。
 
 ### 作業の流れ
 
@@ -171,7 +184,7 @@ git switch main
 git pull
 
 # 2. ブランチを切る
-git switch -c feat/12-map-shop-pins
+git switch -c feat/05-map-shop-pins
 
 # 3. 実装する
 
@@ -181,8 +194,8 @@ npm run build   # ビルドが通るか
 
 # 5. コミットして push
 git add -A
-git commit -m "地図にラーメン店のピンを表示"
-git push -u origin feat/12-map-shop-pins
+git commit -m "05. 地図にラーメン店のピンを表示"
+git push -u origin feat/05-map-shop-pins
 
 # 6. GitHub で PR を作る（テンプレートが自動で出ます）
 ```
