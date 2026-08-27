@@ -43,8 +43,8 @@ export default function Sidebar() {
             // 画面が狭いときは小さめに詰めて、4 つとも収まるようにする
             className={`flex shrink-0 items-center gap-1.5 rounded px-2 py-2 text-xs whitespace-nowrap md:gap-2 md:px-3 md:text-sm ${
               isActive
-                ? "bg-gray-900 font-medium text-white"
-                : "text-gray-700 hover:bg-gray-200"
+                ? "bg-momo-500 font-medium text-white" // 選択中の項目を桃色（濃い）にする
+                : "text-gray-700 hover:bg-momo-50 hover:text-momo-700" // ホバー時も薄い桃色にする
             }`}
           >
             <span aria-hidden="true">{item.icon}</span>
