@@ -1,9 +1,14 @@
-import { supabase } from "@/lib/supabase";
 import { notFound } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { formatJst } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function ShopDetailPage({ params }: { params: { id: string } }) {
+// params は「あとから届く箱」なので、型も Promise 前提のものを使う。
+// PageProps は Next.js が自動生成してくれるので import は不要。
+export default async function ShopDetailPage({
+  params,
+}: PageProps<"/shops/[id]">) {
   const { id } = await params;
 
   const { data: shop, error } = await supabase
@@ -16,10 +21,7 @@ export default async function ShopDetailPage({ params }: { params: { id: string 
     return notFound();
   }
 
-  const {
-    data: measurements,
-    error: measurementsError,
-  } = await supabase
+  const { data: measurements, error: measurementsError } = await supabase
     .from("ramen_measurements")
     .select("*")
     .eq("shop_id", id)
@@ -67,7 +69,7 @@ export default async function ShopDetailPage({ params }: { params: { id: string 
               {measurements.map((measurement) => (
                 <tr key={measurement.id} className="border-t">
                   <td className="px-2 py-2">
-                    {new Date(measurement.measured_at).toLocaleString()}
+                    {formatJst(measurement.measured_at)}
                   </td>
                   <td className="px-2 py-2">
                     {measurement.salinity_pct ?? "-"}
