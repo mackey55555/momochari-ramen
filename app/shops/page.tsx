@@ -60,7 +60,10 @@ export default async function ShopsPage() {
               key には他と重複しない値（＝ id）を渡すのが React のお約束。 */}
           {shops.map((shop) => (
             <li key={shop.id} className="py-1">
-              <Link href={`/shops/${shop.id}`} className="text-blue-600 hover:underline">
+              <Link
+                href={`/shops/${shop.id}`}
+                className="text-blue-600 hover:underline"
+              >
                 {shop.name}
               </Link>
               {/* style は null のことがある（NOT NULL じゃないカラム）ので、
