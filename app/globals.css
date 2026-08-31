@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --color-momo-50: #fdf2f4;
+  --color-momo-500: #e4707a;
+  --color-momo-700: #b8434f;
+}
+
 /* 地図を画面いっぱいに広げたいので、html と body に高さを持たせておく。
    これがないと Tailwind の h-full が「親の高さ = 0」になって潰れる。 */
 html,
