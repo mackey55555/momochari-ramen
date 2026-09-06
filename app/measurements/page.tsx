@@ -1,16 +1,13 @@
-/**
+/*
  * ラーメン計測ページ（/measurements）
- *
- * まだ中身は空です。ここを作るのが Issue になります。
  * データの取り方は app/shops/page.tsx がお手本になります。
  */
 
 import { supabase } from "@/lib/supabase";
+import MeasurementForm from "./MeasurementForm";
 
 /**
- * ラーメン店の一覧ページ（/shops）
- *
- * === このファイルは「Supabase からデータを取って表示する」お手本です ===
+ * ラーメン計測ページ（/measurements）
  *
  * 新しいページを作るときは、だいたいこの形をコピーすれば動きます。
  * ポイントは 3 つだけです。
@@ -26,6 +23,22 @@ import { supabase } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export default async function MeasurementsPage() {
+  const { data: shops, error: shopsError } = await supabase
+    .from("shops")
+    .select("*")
+    .order("name");
+
+  if (shopsError) {
+    return (
+      <div className="p-8">
+        <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
+        <p className="text-red-600">
+          店舗一覧の取得に失敗しました: {shopsError.message}
+        </p>
+      </div>
+    );
+  }
+
   // supabase-js の書き方:
   //   .from("ramen_measurements")   … ramen_measurements テーブルから
   //   .select("*, shops(name, style)")     … 全カラムを取得し、shops テーブルと結合
@@ -56,6 +69,8 @@ export default async function MeasurementsPage() {
     <div className="p-8">
       <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
 
+      <MeasurementForm shops={shops ?? []} />
+
       {rows.length === 0 ? (
         <p>データがありません</p>
       ) : (
@@ -75,7 +90,9 @@ export default async function MeasurementsPage() {
                 <tr key={m.id} className="border-t">
                   <td className="px-2 py-2">
                     {m.measured_at
-                      ? new Date(m.measured_at).toLocaleString()
+                      ? new Date(m.measured_at).toLocaleString("ja-JP", {
+                          timeZone: "Asia/Tokyo",
+                        })
                       : "-"}
                   </td>
                   <td className="px-2 py-2">{m.shops?.name ?? "-"}</td>
@@ -91,29 +108,3 @@ export default async function MeasurementsPage() {
     </div>
   );
 }
-
-
-
-
-
-/*export default function MeasurementsPage() {
-  return (
-    <div className="p-8">
-      <h1 className="mb-2 text-2xl font-bold">ラーメン計測</h1>
-      <p className="mb-6 text-sm text-gray-500">
-        塩分濃度・温度の計測結果を見るページです。
-      </p>
-
-      <div className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-600">
-        <p className="mb-2 font-medium">ここはこれから作るところです</p>
-        <ul className="list-disc pl-5">
-          <li>
-            ramen_measurements を新しい順に一覧表示する（お店の名前つきで）
-          </li>
-          <li>手入力フォーム（デバイスが壊れたときのバックアップ用）</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-*/

@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ShopDetailPage({ params }: { params: { id: string } }) {
+export default async function ShopDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const { id } = await params;
 
   const { data: shop, error } = await supabase
@@ -16,10 +20,7 @@ export default async function ShopDetailPage({ params }: { params: { id: string 
     return notFound();
   }
 
-  const {
-    data: measurements,
-    error: measurementsError,
-  } = await supabase
+  const { data: measurements, error: measurementsError } = await supabase
     .from("ramen_measurements")
     .select("*")
     .eq("shop_id", id)
@@ -67,7 +68,9 @@ export default async function ShopDetailPage({ params }: { params: { id: string 
               {measurements.map((measurement) => (
                 <tr key={measurement.id} className="border-t">
                   <td className="px-2 py-2">
-                    {new Date(measurement.measured_at).toLocaleString()}
+                    {new Date(measurement.measured_at).toLocaleString("ja-JP", {
+                      timeZone: "Asia/Tokyo",
+                    })}
                   </td>
                   <td className="px-2 py-2">
                     {measurement.salinity_pct ?? "-"}
