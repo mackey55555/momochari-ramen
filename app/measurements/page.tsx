@@ -50,8 +50,9 @@ export default async function MeasurementsPage() {
               <tr className="text-left">
                 <th className="px-2 py-1">計測日時</th>
                 <th className="px-2 py-1">店名</th>
-                <th className="px-2 py-1">塩分濃度</th>
-                <th className="px-2 py-1">温度</th>
+                <th className="px-2 py-1">塩分濃度(%)</th>
+                <th className="px-2 py-1">こってり度(mV)</th>
+                <th className="px-2 py-1">温度(℃)</th>
                 <th className="px-2 py-1">メモ</th>
               </tr>
             </thead>
@@ -62,6 +63,7 @@ export default async function MeasurementsPage() {
                   <td className="px-2 py-2">{formatJst(m.measured_at)}</td>
                   <td className="px-2 py-2">{m.shops.name}</td>
                   <td className="px-2 py-2">{m.salinity_pct ?? "-"}</td>
+                  <td className="px-2 py-2">{m.richness_mv ?? "-"}</td>
                   <td className="px-2 py-2">{m.temp_c ?? "-"}</td>
                   <td className="px-2 py-2">{m.memo ?? "-"}</td>
                 </tr>

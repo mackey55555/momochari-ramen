@@ -26,9 +26,9 @@
     間違っていると `401` が返ります。
 - ボディは JSON。
 - 日時は **ISO 8601 形式** で送ってください。
-  - OK: `2025-09-19T10:00:00+09:00`
-  - NG: `2025/09/19 10:00:00`
-  - **タイムゾーン（`+09:00`）を付け忘れると UTC 扱いになり、9 時間ずれます。**
+  - JavaScript なら `new Date().toISOString()` が確実です（`2026-09-19T01:00:00.000Z` の形になります）
+  - NG: `2025/09/19 10:00:00` のように自分で組み立てる → **9 時間ずれる事故**が起きます
+  - 表示は Web 側で日本時間に直すので、送るときは世界標準時のままで構いません
 
 ---
 
@@ -49,31 +49,31 @@
       "lng": 133.9183,
       "accel_rms": 0.42,
       "co2_ppm": 480,
-      "lux": 320,
-      "recorded_at": "2025-09-19T10:00:00+09:00"
+      "speed_kmh": 14.2,
+      "recorded_at": "2026-09-19T01:00:00.000Z"
     },
     {
       "lat": 34.667,
       "lng": 133.919,
       "accel_rms": 1.85,
       "co2_ppm": 610,
-      "lux": 210,
-      "recorded_at": "2025-09-19T10:00:10+09:00"
+      "speed_kmh": 8.7,
+      "recorded_at": "2026-09-19T01:00:01.000Z"
     }
   ]
 }
 ```
 
-| フィールド             | 型     | 必須 | 説明                                     |
-| ---------------------- | ------ | ---- | ---------------------------------------- |
-| `device_id`            | string | ✅   | デバイスの識別子。例: `"raspi-01"`       |
-| `points`               | array  | ✅   | 1 件以上。1 回のリクエストで最大 1000 件 |
-| `points[].lat`         | number | ✅   | 緯度                                     |
-| `points[].lng`         | number | ✅   | 経度                                     |
-| `points[].recorded_at` | string | ✅   | 計測時刻（ISO 8601）                     |
-| `points[].accel_rms`   | number |      | 加速度 RMS。振動の強さ＝ガタガタ道の指標 |
-| `points[].co2_ppm`     | number |      | CO2 濃度（ppm）                          |
-| `points[].lux`         | number |      | 照度（lux）。暗い道の指標                |
+| フィールド             | 型     | 必須 | 説明                                           |
+| ---------------------- | ------ | ---- | ---------------------------------------------- |
+| `device_id`            | string | ✅   | デバイスの識別子。例: `"raspi-01"`             |
+| `points`               | array  | ✅   | 1 件以上。1 回のリクエストで最大 1000 件       |
+| `points[].lat`         | number | ✅   | 緯度                                           |
+| `points[].lng`         | number | ✅   | 経度                                           |
+| `points[].recorded_at` | string | ✅   | 計測時刻（ISO 8601）                           |
+| `points[].accel_rms`   | number |      | 加速度 RMS（単位 g）。振動＝ガタガタ道の指標   |
+| `points[].co2_ppm`     | number |      | CO2 濃度（ppm）。屋外は 400〜700 程度          |
+| `points[].speed_kmh`   | number |      | 速度（km/h）。GPS が返す値。流れの悪い道の指標 |
 
 省略した項目は `null` として保存されます（センサーが載っていない場合はそれで OK）。
 
@@ -99,36 +99,43 @@ curl -X POST http://localhost:3000/api/ingest \
             "lng": 133.9183,
             "accel_rms": 0.42,
             "co2_ppm": 480,
-            "lux": 320,
-            "recorded_at": "2025-09-19T10:00:00+09:00"
+            "speed_kmh": 14.2,
+            "recorded_at": "2026-09-19T01:00:00.000Z"
           }
         ]
       }'
 ```
 
-### Python の例（Raspberry Pi 想定）
+### JavaScript の例（Raspberry Pi 想定）
 
-```python
-import requests
+センサーが届く前でも、この形でダミー値を送れば疎通確認ができます。
 
-requests.post(
-    "http://localhost:3000/api/ingest",
-    headers={"x-device-key": "ここに合言葉"},
-    json={
-        "device_id": "raspi-01",
-        "points": [
-            {
-                "lat": 34.6664,
-                "lng": 133.9183,
-                "accel_rms": 0.42,
-                "co2_ppm": 480,
-                "lux": 320,
-                "recorded_at": "2025-09-19T10:00:00+09:00",
-            }
-        ],
+```javascript
+const API_URL = "http://localhost:3000/api/ingest";
+const DEVICE_KEY = "ここに合言葉";
+
+async function send(points) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-device-key": DEVICE_KEY,
     },
-    timeout=10,
-)
+    body: JSON.stringify({ device_id: "raspi-01", points }),
+  });
+  console.log(res.status, await res.text());
+}
+
+send([
+  {
+    lat: 34.6664,
+    lng: 133.9183,
+    accel_rms: 0.42,
+    co2_ppm: 480,
+    speed_kmh: 14.2,
+    recorded_at: new Date().toISOString(),
+  },
+]);
 ```
 
 ---
@@ -144,6 +151,7 @@ requests.post(
   "shop_id": "11111111-1111-4111-8111-111111111111",
   "salinity_pct": 1.3,
   "tds_ppm": 13000,
+  "richness_mv": 1250,
   "temp_c": 78.2,
   "memo": "中華そば（並）"
 }
@@ -154,6 +162,7 @@ requests.post(
 | `shop_id`      | string(uuid) | ✅   | お店の ID。`shops` テーブルに存在するものを指定 |
 | `salinity_pct` | number       |      | 塩分濃度（%）                                   |
 | `tds_ppm`      | number       |      | TDS の生値                                      |
+| `richness_mv`  | number       |      | こってり度。静電容量式センサーの出力電圧（mV）  |
 | `temp_c`       | number       |      | スープ温度（℃）                                 |
 | `memo`         | string       |      | メモ（食べたメニューなど）                      |
 
@@ -172,9 +181,10 @@ Supabase ダッシュボードの Table Editor で確認できます。
   "shop_id": "11111111-1111-4111-8111-111111111111",
   "salinity_pct": 1.3,
   "tds_ppm": 13000,
+  "richness_mv": 1250,
   "temp_c": 78.2,
   "memo": "中華そば（並）",
-  "measured_at": "2025-09-19T01:23:45.678Z"
+  "measured_at": "2026-09-19T01:23:45.678Z"
 }
 ```
 
@@ -188,6 +198,7 @@ curl -X POST http://localhost:3000/api/ramen \
         "shop_id": "11111111-1111-4111-8111-111111111111",
         "salinity_pct": 1.3,
         "tds_ppm": 13000,
+        "richness_mv": 1250,
         "temp_c": 78.2,
         "memo": "中華そば（並）"
       }'
