@@ -31,9 +31,9 @@ create table ride_points (
   device_id text not null,          -- デバイス識別子（例: "raspi-01"）
   lat double precision not null,
   lng double precision not null,
-  accel_rms real,                   -- 振動の強さ（加速度RMS）。ガタガタ道指標
-  co2_ppm real,                     -- CO2濃度
-  lux real,                         -- 照度。暗い道指標
+  accel_rms real,                   -- 振動の強さ（加速度RMS、単位 g）。ガタガタ道指標
+  co2_ppm real,                     -- CO2濃度（ppm）
+  speed_kmh real,                   -- 速度（km/h）。GPS が返す速度。流れの悪い道の指標
   recorded_at timestamptz not null, -- デバイス側の計測時刻
   created_at timestamptz not null default now()
 );
@@ -47,9 +47,11 @@ create index idx_ride_points_recorded_at on ride_points (recorded_at);
 create table ramen_measurements (
   id uuid primary key default gen_random_uuid(),
   shop_id uuid not null references shops(id),
-  salinity_pct real,                -- 塩分濃度（%）
-  tds_ppm real,                     -- TDS生値
-  temp_c real,                      -- スープ温度（℃）
+  salinity_pct real,                -- 塩分濃度（%）。電極2本 + ADS1015 の自作EC計で測る
+  tds_ppm real,                     -- TDS生値（EC からの換算値）
+  richness_mv real,                 -- こってり度。静電容量式センサー(SEN0308)の出力電圧(mV)。
+                                    -- 水は誘電率が高く油は低いので、脂の量で値が変わることを利用
+  temp_c real,                      -- スープ温度（℃）。防水温度センサー(DS18B20)
   memo text,
   measured_at timestamptz not null default now()
 );

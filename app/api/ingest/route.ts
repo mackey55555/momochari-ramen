@@ -20,16 +20,16 @@ import type { TablesInsert } from "@/lib/database.types";
  *               "lng": 133.9183,
  *               "accel_rms": 0.42,
  *               "co2_ppm": 480,
- *               "lux": 320,
- *               "recorded_at": "2025-09-19T10:00:00+09:00"
+ *               "speed_kmh": 14.2,
+ *               "recorded_at": "2026-09-19T01:00:00.000Z"
  *             },
  *             {
  *               "lat": 34.6670,
  *               "lng": 133.9190,
  *               "accel_rms": 1.85,
  *               "co2_ppm": 610,
- *               "lux": 210,
- *               "recorded_at": "2025-09-19T10:00:10+09:00"
+ *               "speed_kmh": 8.7,
+ *               "recorded_at": "2026-09-19T01:00:01.000Z"
  *             }
  *           ]
  *         }'
@@ -38,9 +38,10 @@ import type { TablesInsert } from "@/lib/database.types";
  *
  * - points は配列なので、まとめ送り（バッチ）ができます。
  *   1 点ずつ毎秒送るより、10〜60 点ためて送るほうが電池にも回線にも優しいです。
- * - lat / lng / recorded_at は必須。accel_rms / co2_ppm / lux は省略可（センサーが無い場合など）。
- * - recorded_at は ISO 8601 形式（例: "2025-09-19T10:00:00+09:00"）。
- *   タイムゾーンを付け忘れると UTC 扱いになり 9 時間ずれるので注意。
+ * - lat / lng / recorded_at は必須。accel_rms / co2_ppm / speed_kmh は省略可（センサーが無い場合など）。
+ * - recorded_at は ISO 8601 形式。JavaScript なら new Date().toISOString() が確実で、
+ *   "2026-09-19T01:00:00.000Z" の形（世界標準時）になる。
+ *   自分で日時の文字列を組み立てると 9 時間ずれる事故が起きるので避けること。
  *
  * 詳しい仕様は docs/api.md にも書いてあります。
  * ============================================================
@@ -52,7 +53,7 @@ type RawPoint = {
   lng?: unknown;
   accel_rms?: unknown;
   co2_ppm?: unknown;
-  lux?: unknown;
+  speed_kmh?: unknown;
   recorded_at?: unknown;
 };
 
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
       // センサーが付いていない・値が取れなかった場合は null で入れておく
       accel_rms: toNumberOrNull(point.accel_rms),
       co2_ppm: toNumberOrNull(point.co2_ppm),
-      lux: toNumberOrNull(point.lux),
+      speed_kmh: toNumberOrNull(point.speed_kmh),
       recorded_at: recordedAt,
     });
   }

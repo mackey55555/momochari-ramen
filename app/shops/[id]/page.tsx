@@ -60,8 +60,9 @@ export default async function ShopDetailPage({
             <thead>
               <tr className="text-left">
                 <th className="px-2 py-1">計測日時</th>
-                <th className="px-2 py-1">塩分濃度</th>
-                <th className="px-2 py-1">温度</th>
+                <th className="px-2 py-1">塩分濃度(%)</th>
+                <th className="px-2 py-1">こってり度(mV)</th>
+                <th className="px-2 py-1">温度(℃)</th>
                 <th className="px-2 py-1">メモ</th>
               </tr>
             </thead>
@@ -73,6 +74,9 @@ export default async function ShopDetailPage({
                   </td>
                   <td className="px-2 py-2">
                     {measurement.salinity_pct ?? "-"}
+                  </td>
+                  <td className="px-2 py-2">
+                    {measurement.richness_mv ?? "-"}
                   </td>
                   <td className="px-2 py-2">{measurement.temp_c ?? "-"}</td>
                   <td className="px-2 py-2">{measurement.memo ?? "-"}</td>

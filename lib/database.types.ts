@@ -26,6 +26,7 @@ export type Database = {
           salinity_pct: number | null;
           tds_ppm: number | null;
           temp_c: number | null;
+          richness_mv: number | null;
           memo: string | null;
           measured_at: string;
         };
@@ -35,6 +36,7 @@ export type Database = {
           salinity_pct?: number | null;
           tds_ppm?: number | null;
           temp_c?: number | null;
+          richness_mv?: number | null;
           memo?: string | null;
           measured_at?: string;
         };
@@ -44,6 +46,7 @@ export type Database = {
           salinity_pct?: number | null;
           tds_ppm?: number | null;
           temp_c?: number | null;
+          richness_mv?: number | null;
           memo?: string | null;
           measured_at?: string;
         };
@@ -65,7 +68,7 @@ export type Database = {
           lng: number;
           accel_rms: number | null;
           co2_ppm: number | null;
-          lux: number | null;
+          speed_kmh: number | null;
           recorded_at: string;
           created_at: string;
         };
@@ -76,7 +79,7 @@ export type Database = {
           lng: number;
           accel_rms?: number | null;
           co2_ppm?: number | null;
-          lux?: number | null;
+          speed_kmh?: number | null;
           recorded_at: string;
           created_at?: string;
         };
@@ -87,7 +90,7 @@ export type Database = {
           lng?: number;
           accel_rms?: number | null;
           co2_ppm?: number | null;
-          lux?: number | null;
+          speed_kmh?: number | null;
           recorded_at?: string;
           created_at?: string;
         };

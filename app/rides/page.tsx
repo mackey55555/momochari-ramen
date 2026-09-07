@@ -57,9 +57,9 @@ export default async function RidesPage() {
                 <th className="border px-3 py-2 text-left">デバイスID</th>
                 <th className="border px-3 py-2 text-left">緯度</th>
                 <th className="border px-3 py-2 text-left">経度</th>
-                <th className="border px-3 py-2 text-left">振動</th>
-                <th className="border px-3 py-2 text-left">CO2</th>
-                <th className="border px-3 py-2 text-left">照度</th>
+                <th className="border px-3 py-2 text-left">振動(g)</th>
+                <th className="border px-3 py-2 text-left">CO2(ppm)</th>
+                <th className="border px-3 py-2 text-left">速度(km/h)</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +79,9 @@ export default async function RidesPage() {
                   <td className="border px-3 py-2 align-top">
                     {p.co2_ppm ?? "-"}
                   </td>
-                  <td className="border px-3 py-2 align-top">{p.lux ?? "-"}</td>
+                  <td className="border px-3 py-2 align-top">
+                    {p.speed_kmh ?? "-"}
+                  </td>
                 </tr>
               ))}
             </tbody>
