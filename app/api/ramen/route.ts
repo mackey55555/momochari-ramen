@@ -16,6 +16,7 @@ import type { TablesInsert } from "@/lib/database.types";
  *           "shop_id": "11111111-1111-4111-8111-111111111111",
  *           "salinity_pct": 1.3,
  *           "tds_ppm": 13000,
+ *           "richness_mv": 1250,
  *           "temp_c": 78.2,
  *           "memo": "中華そば（並）"
  *         }'
@@ -24,7 +25,8 @@ import type { TablesInsert } from "@/lib/database.types";
  *
  * - shop_id は必須。shops テーブルに存在する id を指定してください
  *   （Supabase の Table Editor か /shops ページで確認できます）。
- * - salinity_pct / tds_ppm / temp_c / memo は省略可。
+ * - salinity_pct / tds_ppm / richness_mv / temp_c / memo は省略可。
+ * - richness_mv は「こってり度」。静電容量式センサーの出力電圧(mV)をそのまま送る。
  * ============================================================
  */
 
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
     shop_id?: unknown;
     salinity_pct?: unknown;
     tds_ppm?: unknown;
+    richness_mv?: unknown;
     temp_c?: unknown;
     memo?: unknown;
   };
@@ -74,6 +77,7 @@ export async function POST(request: Request) {
     shop_id: shopId,
     salinity_pct: toNumberOrNull(body.salinity_pct),
     tds_ppm: toNumberOrNull(body.tds_ppm),
+    richness_mv: toNumberOrNull(body.richness_mv),
     temp_c: toNumberOrNull(body.temp_c),
     memo: typeof body.memo === "string" ? body.memo : null,
     // measured_at は指定しない → DB 側の default now() で「今」が入る

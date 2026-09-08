@@ -77,7 +77,10 @@ export default function MeasurementForm({ shops }: MeasurementFormProps) {
       </div>
 
       <div>
-        <label htmlFor="salinity-pct" className="mb-1 block text-sm font-medium">
+        <label
+          htmlFor="salinity-pct"
+          className="mb-1 block text-sm font-medium"
+        >
           塩分濃度
         </label>
         <input
