@@ -42,7 +42,12 @@ export default async function RidesPage() {
 
   return (
     <div className="p-8">
-      <h1 className="mb-4 text-2xl font-bold">走行データ</h1>
+      <h1 className="mb-4 text-2xl font-bold">
+        走行データ{" "}
+        <span className="text-sm font-normal text-gray-500">
+          一覧 {points.length}件
+        </span>
+      </h1>
 
       {points.length === 0 ? (
         <p>まだデータがありません</p>
@@ -50,16 +55,16 @@ export default async function RidesPage() {
         // 表は画面からはみ出しやすいので、この div で囲んで
         // 「表だけが横スクロールする」ようにしておく。
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
+          <table className="w-full border-collapse border border-gray-200">
+            <thead className="bg-gray-50 font-medium">
               <tr>
                 <th className="border px-3 py-2 text-left">計測時刻</th>
                 <th className="border px-3 py-2 text-left">デバイスID</th>
-                <th className="border px-3 py-2 text-left">緯度</th>
-                <th className="border px-3 py-2 text-left">経度</th>
-                <th className="border px-3 py-2 text-left">振動(g)</th>
-                <th className="border px-3 py-2 text-left">CO2(ppm)</th>
-                <th className="border px-3 py-2 text-left">速度(km/h)</th>
+                <th className="border px-3 py-2 text-right">緯度</th>
+                <th className="border px-3 py-2 text-right">経度</th>
+                <th className="border px-3 py-2 text-right">振動(g)</th>
+                <th className="border px-3 py-2 text-right">CO2(ppm)</th>
+                <th className="border px-3 py-2 text-right">速度(km/h)</th>
               </tr>
             </thead>
             <tbody>
@@ -71,15 +76,19 @@ export default async function RidesPage() {
                   </td>
                   <td className="border px-3 py-2 align-top">{p.device_id}</td>
                   {/* センサーが載っていない項目は null で入ってくるので「-」を出す */}
-                  <td className="border px-3 py-2 align-top">{p.lat}</td>
-                  <td className="border px-3 py-2 align-top">{p.lng}</td>
-                  <td className="border px-3 py-2 align-top">
+                  <td className="border px-3 py-2 text-right align-top">
+                    {p.lat}
+                  </td>
+                  <td className="border px-3 py-2 text-right align-top">
+                    {p.lng}
+                  </td>
+                  <td className="border px-3 py-2 text-right align-top">
                     {p.accel_rms ?? "-"}
                   </td>
-                  <td className="border px-3 py-2 align-top">
+                  <td className="border px-3 py-2 text-right align-top">
                     {p.co2_ppm ?? "-"}
                   </td>
-                  <td className="border px-3 py-2 align-top">
+                  <td className="border px-3 py-2 text-right align-top">
                     {p.speed_kmh ?? "-"}
                   </td>
                 </tr>

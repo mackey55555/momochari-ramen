@@ -19,6 +19,19 @@ import { supabase } from "@/lib/supabase";
 // 店を追加しても画面が変わらない…という事故が起きます。
 export const dynamic = "force-dynamic";
 
+function styleColor(style: string | null) {
+  switch (style) {
+    case "豚骨":
+      return "bg-orange-100 text-orange-800";
+    case "塩":
+      return "bg-blue-100 text-blue-800";
+    case "味噌":
+      return "bg-amber-100 text-amber-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+}
+
 export default async function ShopsPage() {
   // supabase-js の書き方:
   //   .from("shops")   … shops テーブルから
@@ -55,24 +68,30 @@ export default async function ShopsPage() {
           を実行してみてください。
         </p>
       ) : (
-        <ul className="list-disc pl-6">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/* 配列を .map() で <li> に変換して並べる。
               key には他と重複しない値（＝ id）を渡すのが React のお約束。 */}
           {shops.map((shop) => (
-            <li key={shop.id} className="py-1">
+            <li
+              key={shop.id}
+              className="rounded-lg border border-gray-200 p-4 hover:shadow"
+            >
               <Link
                 href={`/shops/${shop.id}`}
-                className="text-blue-600 hover:underline"
+                className="text-lg font-medium text-blue-600 hover:underline"
               >
                 {shop.name}
               </Link>
-              {/* style は null のことがある（NOT NULL じゃないカラム）ので、
-                  値があるときだけ出す。 */}
-              {shop.style && (
-                <span className="ml-2 text-sm text-gray-500">
-                  （{shop.style}）
-                </span>
-              )}
+              <div className="mt-3 space-y-2 text-sm text-gray-600">
+                <p>
+                  <span
+                    className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${styleColor(shop.style)}`}
+                  >
+                    {shop.style ?? "その他"}
+                  </span>
+                </p>
+                <p>{shop.address ?? "住所未登録"}</p>
+              </div>
             </li>
           ))}
         </ul>

@@ -57,34 +57,47 @@ export default async function MeasurementsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
+      <h1 className="mb-4 text-2xl font-bold">
+        ラーメン計測{" "}
+        <span className="text-sm font-normal text-gray-500">
+          一覧 {measurements.length}件
+        </span>
+      </h1>
       <MeasurementForm shops={shops ?? []} />
 
       {measurements.length === 0 ? (
         <p>まだ計測がありません</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-collapse">
-            <thead>
+          <table className="min-w-full table-auto border-collapse border border-gray-200">
+            <thead className="bg-gray-50 font-medium">
               <tr className="text-left">
                 <th className="px-2 py-1">計測日時</th>
                 <th className="px-2 py-1">店名</th>
-                <th className="px-2 py-1">塩分濃度(%)</th>
-                <th className="px-2 py-1">こってり度(mV)</th>
-                <th className="px-2 py-1">温度(℃)</th>
+                <th className="px-2 py-1 text-right">塩分濃度(%)</th>
+                <th className="px-2 py-1 text-right">こってり度(mV)</th>
+                <th className="px-2 py-1 text-right">温度(℃)</th>
                 <th className="px-2 py-1">メモ</th>
               </tr>
             </thead>
             <tbody>
               {measurements.map((m) => (
-                <tr key={m.id} className="border-t">
+                <tr key={m.id} className="border-t border-gray-200">
                   {/* 日時は必ず formatJst を通す（理由は lib/format.ts のコメント参照） */}
-                  <td className="px-2 py-2">{formatJst(m.measured_at)}</td>
-                  <td className="px-2 py-2">{m.shops.name}</td>
-                  <td className="px-2 py-2">{m.salinity_pct ?? "-"}</td>
-                  <td className="px-2 py-2">{m.richness_mv ?? "-"}</td>
-                  <td className="px-2 py-2">{m.temp_c ?? "-"}</td>
-                  <td className="px-2 py-2">{m.memo ?? "-"}</td>
+                  <td className="border px-2 py-2">
+                    {formatJst(m.measured_at)}
+                  </td>
+                  <td className="border px-2 py-2">{m.shops.name}</td>
+                  <td className="border px-2 py-2 text-right">
+                    {m.salinity_pct ?? "-"}
+                  </td>
+                  <td className="border px-2 py-2 text-right">
+                    {m.richness_mv ?? "-"}
+                  </td>
+                  <td className="border px-2 py-2 text-right">
+                    {m.temp_c ?? "-"}
+                  </td>
+                  <td className="border px-2 py-2">{m.memo ?? "-"}</td>
                 </tr>
               ))}
             </tbody>
