@@ -12,7 +12,7 @@ import {
 } from "react-leaflet";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { Shop } from "@/types";
+import type { Shop, RidePoint } from "@/types";
 
 // 岡山駅の座標
 const OKAYAMA_STATION: [number, number] = [34.6664, 133.9183];
@@ -44,17 +44,17 @@ function getCo2Color(value: number | null) {
   return "green";
 }
 
-function getLuxColor(value: number | null) {
+function getSpeedColor(value: number | null) {
   if (value === null) return "gray";
-  if (value < 50) return "red";
-  if (value < 200) return "orange";
-  return "green";
+  if (value < 8) return "red"; // 止まりがち
+  if (value < 15) return "orange"; // ゆっくり
+  return "green"; // 快適
 }
 
 export default function Map() {
   const [shops, setShops] = useState<Shop[]>([]);
-  const [ridePoints, setRidePoints] = useState<any[]>([]);
-  const [metric, setMetric] = useState<"accel" | "co2" | "lux">("accel");
+  const [ridePoints, setRidePoints] = useState<RidePoint[]>([]);
+  const [metric, setMetric] = useState<"accel" | "co2" | "speed">("accel");
 
   useEffect(() => {
     supabase
@@ -64,13 +64,14 @@ export default function Map() {
     supabase
       .from("ride_points")
       .select("*")
-      .then(({ data }) => setRidePoints(data ?? []));
+      .limit(2000)
+      .then(({ data }) => setRidePoints((data as RidePoint[]) ?? []));
   }, []);
 
-  const getPointColor = (p: any) => {
+  const getPointColor = (p: RidePoint) => {
     if (metric === "accel") return getAccelColor(p.accel_rms);
     if (metric === "co2") return getCo2Color(p.co2_ppm);
-    if (metric === "lux") return getLuxColor(p.lux);
+    if (metric === "speed") return getSpeedColor(p.speed_kmh);
     return "gray";
   };
 
@@ -99,14 +100,14 @@ export default function Map() {
           CO2
         </button>
         <button
-          onClick={() => setMetric("lux")}
+          onClick={() => setMetric("speed")}
           className={`rounded px-3 py-1 text-sm font-medium ${
-            metric === "lux"
+            metric === "speed"
               ? "bg-momo-500 text-white"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          暗さ (照度)
+          速度
         </button>
       </div>
 
@@ -153,7 +154,7 @@ export default function Map() {
         <p className="mb-1 font-medium">
           {metric === "accel" && "振動（道の荒れ具合）"}
           {metric === "co2" && "二酸化炭素（CO2）"}
-          {metric === "lux" && "照度（道の暗さ）"}
+          {metric === "speed" && "速度"}
         </p>
 
         {metric === "accel" && (
@@ -190,19 +191,19 @@ export default function Map() {
           </>
         )}
 
-        {metric === "lux" && (
+        {metric === "speed" && (
           <>
             <p>
               <span className="mr-1 inline-block h-3 w-3 rounded-full bg-red-500 align-middle" />
-              暗くて危険（〜50）
+              遅い・止まりがち（〜8km/h）
             </p>
             <p>
               <span className="mr-1 inline-block h-3 w-3 rounded-full bg-orange-500 align-middle" />
-              やや暗い（〜200）
+              ゆっくり（8〜15km/h）
             </p>
             <p>
               <span className="mr-1 inline-block h-3 w-3 rounded-full bg-green-500 align-middle" />
-              明るい（200〜）
+              快適（15km/h〜）
             </p>
           </>
         )}
