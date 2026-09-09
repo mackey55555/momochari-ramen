@@ -148,12 +148,10 @@ export async function POST(request: Request) {
 
   // --- 4. DB に保存 -----------------------------------------------
   // 配列を渡すと、まとめて INSERT（既に存在する場合は無視）してくれる（1 件ずつより速い）。
-  const { error } = await supabase
-    .from("ride_points")
-    .upsert(rows, {
-      onConflict: "device_id,recorded_at",
-      ignoreDuplicates: true,
-    });
+  const { error } = await supabase.from("ride_points").upsert(rows, {
+    onConflict: "device_id,recorded_at",
+    ignoreDuplicates: true,
+  });
 
   if (error) {
     // 何が起きたかログに残しておくと、Vercel のログから原因を追える
