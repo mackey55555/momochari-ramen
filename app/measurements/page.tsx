@@ -37,10 +37,7 @@ export default async function MeasurementsPage() {
   // select の中に shops(name, style) と書くだけでお店の情報がくっついてきます。
   // schema.sql で shop_id が shops(id) を参照する設定になっており、
   // Supabase がその関係を知っているためです。
-  const { data: shops } = await supabase
-    .from("shops")
-    .select("*")
-    .order("name");
+
   const { data: measurements, error } = await supabase
     .from("ramen_measurements")
     .select("*, shops(name, style)")

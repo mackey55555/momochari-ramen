@@ -17,6 +17,7 @@ export default function MeasurementForm({ shops }: MeasurementFormProps) {
   const [memo, setMemo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [richnessMv, setRichnessMv] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,6 +33,7 @@ export default function MeasurementForm({ shops }: MeasurementFormProps) {
     const { error } = await supabase.from("ramen_measurements").insert({
       shop_id: shopId,
       salinity_pct: Number(salinityPct),
+      richness_mv: richnessMv === "" ? null : Number(richnessMv),
       temp_c: Number(tempC),
       memo: memo || null,
     });
@@ -44,6 +46,7 @@ export default function MeasurementForm({ shops }: MeasurementFormProps) {
 
     setShopId("");
     setSalinityPct("");
+    setRichnessMv("");
     setTempC("");
     setMemo("");
     setIsSubmitting(false);
@@ -89,6 +92,21 @@ export default function MeasurementForm({ shops }: MeasurementFormProps) {
           step="any"
           value={salinityPct}
           onChange={(event) => setSalinityPct(event.target.value)}
+          disabled={isSubmitting}
+          className="w-full rounded border px-2 py-1"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="richness-mv" className="mb-1 block text-sm font-medium">
+          こってり度
+        </label>
+        <input
+          id="richness-mv"
+          type="number"
+          step="any"
+          value={richnessMv}
+          onChange={(event) => setRichnessMv(event.target.value)}
           disabled={isSubmitting}
           className="w-full rounded border px-2 py-1"
         />
