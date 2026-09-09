@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { formatJst } from "@/lib/format";
+import MeasurementForm from "./MeasurementForm";
 
 /**
  * ラーメン計測ページ（/measurements）
@@ -12,6 +13,22 @@ import { formatJst } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function MeasurementsPage() {
+  const { data: shops, error: shopsError } = await supabase
+    .from("shops")
+    .select("*")
+    .order("name");
+
+  if (shopsError) {
+    return (
+      <div className="p-8">
+        <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
+        <p className="text-red-600">
+          店舗一覧の取得に失敗しました: {shopsError.message}
+        </p>
+      </div>
+    );
+  }
+
   // supabase-js の書き方:
   //   .from("ramen_measurements")                 … ramen_measurements テーブルから
   //   .select("*, shops(name, style)")            … 全カラム + 紐づく shops の一部を
@@ -20,6 +37,7 @@ export default async function MeasurementsPage() {
   // select の中に shops(name, style) と書くだけでお店の情報がくっついてきます。
   // schema.sql で shop_id が shops(id) を参照する設定になっており、
   // Supabase がその関係を知っているためです。
+
   const { data: measurements, error } = await supabase
     .from("ramen_measurements")
     .select("*, shops(name, style)")
@@ -40,6 +58,7 @@ export default async function MeasurementsPage() {
   return (
     <div className="p-8">
       <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
+      <MeasurementForm shops={shops ?? []} />
 
       {measurements.length === 0 ? (
         <p>まだ計測がありません</p>
