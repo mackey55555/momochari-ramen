@@ -40,6 +40,9 @@ create table ride_points (
 
 -- 「最近の走行データを時刻順に取り出す」クエリが速くなるようにインデックスを張る
 create index idx_ride_points_recorded_at on ride_points (recorded_at);
+-- 同じデバイスの同じ時刻の点は 1 つだけにする
+create unique index idx_ride_points_device_recorded
+  on ride_points (device_id, recorded_at);
 
 -- ------------------------------------------------------------
 -- ラーメン計測
