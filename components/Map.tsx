@@ -65,7 +65,7 @@ export default function Map() {
       .from("ride_points")
       .select("*")
       .limit(2000)
-      .then(({ data }) => setRidePoints((data as RidePoint[]) ?? []));
+      .then(({ data }) => setRidePoints(data ?? []));
   }, []);
 
   const getPointColor = (p: RidePoint) => {
