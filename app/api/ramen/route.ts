@@ -30,9 +30,14 @@ import type { TablesInsert } from "@/lib/database.types";
  * ============================================================
  */
 
-/** 値が数値なら数値のまま、そうでなければ null を返す */
-function toNumberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+/** 省略された（送られてこなかった）項目かどうか */
+function isOmitted(value: unknown): boolean {
+  return value === undefined || value === null;
+}
+
+/** 数値として使える値かどうか */
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 export async function POST(request: Request) {
@@ -73,12 +78,30 @@ export async function POST(request: Request) {
     );
   }
 
+  // 数値の項目は省略できるが、送るなら数値で送ってもらう（理由は /api/ingest と同じ）
+  for (const key of [
+    "salinity_pct",
+    "tds_ppm",
+    "richness_mv",
+    "temp_c",
+  ] as const) {
+    const value = body[key];
+    if (!isOmitted(value) && !isNumber(value)) {
+      return NextResponse.json(
+        {
+          error: `${key}: 数値で送ってください（"78.2" のように引用符で囲むとエラーになります）`,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const row: TablesInsert<"ramen_measurements"> = {
     shop_id: shopId,
-    salinity_pct: toNumberOrNull(body.salinity_pct),
-    tds_ppm: toNumberOrNull(body.tds_ppm),
-    richness_mv: toNumberOrNull(body.richness_mv),
-    temp_c: toNumberOrNull(body.temp_c),
+    salinity_pct: isNumber(body.salinity_pct) ? body.salinity_pct : null,
+    tds_ppm: isNumber(body.tds_ppm) ? body.tds_ppm : null,
+    richness_mv: isNumber(body.richness_mv) ? body.richness_mv : null,
+    temp_c: isNumber(body.temp_c) ? body.temp_c : null,
     memo: typeof body.memo === "string" ? body.memo : null,
     // measured_at は指定しない → DB 側の default now() で「今」が入る
   };
@@ -94,6 +117,19 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("ramen_measurements の insert に失敗:", error);
+
+    // 22P02 は PostgreSQL の「値の形式が違う」。
+    // shop_id が UUID の形になっていない（デバイス名や連番を入れた）ときに起きる。
+    // 送る側のミスなので 400 で返し、何を入れるべきかまで伝える。
+    if (error.code === "22P02") {
+      return NextResponse.json(
+        {
+          error:
+            "shop_id の形式が正しくありません。お店の ID は 11111111-1111-4111-8111-111111111111 のような UUID です（デバイス名や連番ではありません）。/shops のページで確認できます",
+        },
+        { status: 400 },
+      );
+    }
 
     // 23503 は PostgreSQL の「外部キー制約違反」＝ shops に無い shop_id を指定した、ということ。
     // これは送る側のミスなので、サーバー障害（500）ではなく 400 で返して原因を伝える。

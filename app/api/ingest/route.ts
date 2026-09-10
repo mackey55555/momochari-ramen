@@ -60,9 +60,14 @@ type RawPoint = {
 /** 1 回のリクエストで受け付ける最大の点数（巨大な JSON でサーバーが詰まるのを防ぐ） */
 const MAX_POINTS = 1000;
 
-/** 値が数値なら数値のまま、そうでなければ null を返す（省略されたセンサー値の扱い用） */
-function toNumberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+/** 省略された（送られてこなかった）項目かどうか */
+function isOmitted(value: unknown): boolean {
+  return value === undefined || value === null;
+}
+
+/** 数値として使える値かどうか */
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 export async function POST(request: Request) {
@@ -134,14 +139,29 @@ export async function POST(request: Request) {
       );
     }
 
+    // センサー値は省略できるが、送るなら数値で送ってもらう。
+    // 以前は数値以外を黙って null にしていたが、それだと送り側が
+    // 「送ったのに保存されていない」ことに気づけないので、はっきり弾く。
+    for (const key of ["accel_rms", "co2_ppm", "speed_kmh"] as const) {
+      const value = point[key];
+      if (!isOmitted(value) && !isNumber(value)) {
+        return NextResponse.json(
+          {
+            error: `points[${index}].${key}: 数値で送ってください（"12.3" のように引用符で囲むとエラーになります）`,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     rows.push({
       device_id: deviceId,
       lat,
       lng,
-      // センサーが付いていない・値が取れなかった場合は null で入れておく
-      accel_rms: toNumberOrNull(point.accel_rms),
-      co2_ppm: toNumberOrNull(point.co2_ppm),
-      speed_kmh: toNumberOrNull(point.speed_kmh),
+      // センサーが付いていない場合は null で入れておく
+      accel_rms: isNumber(point.accel_rms) ? point.accel_rms : null,
+      co2_ppm: isNumber(point.co2_ppm) ? point.co2_ppm : null,
+      speed_kmh: isNumber(point.speed_kmh) ? point.speed_kmh : null,
       recorded_at: recordedAt,
     });
   }
