@@ -46,6 +46,18 @@ export default async function ShopDetailPage({
         </p>
       </div>
 
+      {/* IoT の計測スクリプトは shop_id に UUID を渡すので、ここからコピーできるようにする。
+          select-all を付けると、1 回タップ（クリック）するだけで全体が選択される。 */}
+      <div className="mt-6 max-w-xl rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+        <p className="mb-1 font-medium">
+          店舗 ID（計測スクリプトの shop_id に使います）
+        </p>
+        <code className="block select-all break-all font-mono">{shop.id}</code>
+        <p className="mt-1 text-xs text-gray-500">
+          タップ（クリック）すると全体が選択されるので、そのままコピーしてください。
+        </p>
+      </div>
+
       <h2 className="mb-4 mt-8 text-xl font-bold">計測履歴</h2>
 
       {measurementsError ? (

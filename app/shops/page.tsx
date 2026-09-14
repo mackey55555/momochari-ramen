@@ -59,13 +59,21 @@ export default async function ShopsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="mb-4 text-2xl font-bold">ラーメン店一覧</h1>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">ラーメン店一覧</h1>
+        <Link
+          href="/shops/new"
+          className="shrink-0 rounded bg-momo-500 px-3 py-2 text-sm text-white hover:bg-momo-700"
+        >
+          ＋ お店を登録
+        </Link>
+      </div>
 
       {/* データが 0 件のときは、その旨を出しておくと原因調査がラク */}
       {shops.length === 0 ? (
         <p>
-          まだ 1 件も登録されていません。supabase/seed.sql
-          を実行してみてください。
+          まだ 1
+          件も登録されていません。右上の「お店を登録」から追加してください。
         </p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
