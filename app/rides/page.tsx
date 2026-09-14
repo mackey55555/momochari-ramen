@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { formatJst } from "@/lib/format";
+import { formatElapsed, formatJst, minutesSince } from "@/lib/format";
 
 /**
  * 走行データページ（/rides）
@@ -21,8 +21,11 @@ export default async function RidesPage() {
     supabase.from("ride_points").select("*", { count: "exact", head: true }),
     supabase
       .from("ride_points")
-      .select("recorded_at, device_id")
-      .order("recorded_at", { ascending: false })
+      // 「最終受信」は、サーバーが受け取った時刻（created_at）で見る。
+      // recorded_at はデバイス側の時計なので、Raspberry Pi の時刻がずれていると
+      // 「届いているのに何日も前」に見えてしまうため。
+      .select("created_at, device_id")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
@@ -56,9 +59,7 @@ export default async function RidesPage() {
 
   const totalCount = count ?? 0;
   const minutesSinceLatest = latestPoint
-    ? Math.floor(
-        (Date.now() - new Date(latestPoint.recorded_at).getTime()) / 60000,
-      )
+    ? minutesSince(latestPoint.created_at)
     : null;
   const isStale = minutesSinceLatest !== null && minutesSinceLatest >= 10;
 
@@ -67,7 +68,7 @@ export default async function RidesPage() {
       <h1 className="mb-4 text-2xl font-bold">
         走行データ{" "}
         <span className="text-sm font-normal text-gray-500">
-          一覧 {totalCount}件
+          全 {totalCount}件（新しい順に最大 100 件を表示）
         </span>
       </h1>
 
@@ -77,7 +78,8 @@ export default async function RidesPage() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             <p>デバイス: {latestPoint.device_id}</p>
             <p className={isStale ? "text-red-600" : "text-green-600"}>
-              最終受信: {minutesSinceLatest}分前
+              最終受信: {formatElapsed(minutesSinceLatest ?? 0)}（
+              {formatJst(latestPoint.created_at)}）
             </p>
           </div>
         ) : (

@@ -23,3 +23,23 @@
 export function formatJst(isoText: string): string {
   return new Date(isoText).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
 }
+
+/**
+ * その日時から今まで、何分たったかを返す。
+ *
+ * 今の時刻（Date.now()）を使うので、呼ぶたびに結果が変わる。
+ * ページの部品の中に直接書くと、React の「描画は何回やっても同じ結果になるべき」
+ * というルール（lint の react-hooks/purity）に引っかかるため、関数に切り出している。
+ * /rides はリクエストのたびにサーバーで 1 回だけ描画するページなので、
+ * 「開いた瞬間の今」を基準にするのは意図どおり。
+ */
+export function minutesSince(isoText: string): number {
+  return Math.floor((Date.now() - new Date(isoText).getTime()) / 60000);
+}
+
+/** 経過した分数を「5分前」「3時間前」「2日前」のような読みやすい形にする */
+export function formatElapsed(minutes: number): string {
+  if (minutes < 60) return `${minutes}分前`;
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}時間前`;
+  return `${Math.floor(minutes / (60 * 24))}日前`;
+}
