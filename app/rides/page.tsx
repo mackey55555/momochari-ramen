@@ -48,7 +48,7 @@ export default async function RidesPage() {
   // 取得に失敗したとき（URL やキーが間違っている、テーブルが無い、など）
   if (fetchError) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <h1 className="mb-4 text-2xl font-bold">走行データ</h1>
         <p className="text-red-600">
           データの取得に失敗しました: {fetchError.message}
@@ -64,7 +64,7 @@ export default async function RidesPage() {
   const isStale = minutesSinceLatest !== null && minutesSinceLatest >= 10;
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <h1 className="mb-4 text-2xl font-bold">
         走行データ{" "}
         <span className="text-sm font-normal text-gray-500">
