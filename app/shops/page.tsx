@@ -48,7 +48,7 @@ export default async function ShopsPage() {
   // 取得に失敗したとき（URL やキーが間違っている、テーブルが無い、など）
   if (error) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <h1 className="mb-4 text-2xl font-bold">ラーメン店一覧</h1>
         <p className="text-red-600">
           データの取得に失敗しました: {error.message}
@@ -58,7 +58,7 @@ export default async function ShopsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">ラーメン店一覧</h1>
         <Link

@@ -20,7 +20,7 @@ export default async function MeasurementsPage() {
 
   if (shopsError) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
         <p className="text-red-600">
           店舗一覧の取得に失敗しました: {shopsError.message}
@@ -46,7 +46,7 @@ export default async function MeasurementsPage() {
   // 取得に失敗したとき（URL やキーが間違っている、テーブルが無い、など）
   if (error) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <h1 className="mb-4 text-2xl font-bold">ラーメン計測</h1>
         <p className="text-red-600">
           データの取得に失敗しました: {error.message}
@@ -56,7 +56,7 @@ export default async function MeasurementsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <h1 className="mb-4 text-2xl font-bold">
         ラーメン計測{" "}
         <span className="text-sm font-normal text-gray-500">
