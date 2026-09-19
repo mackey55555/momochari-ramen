@@ -144,12 +144,15 @@ const EXISTING_SHOPS = [
 
 // ジャンルごとの「らしい」値の範囲。
 // 塩分はラーメンのスープとして現実的な 0.8〜1.8%、こってり度は 1100〜1600mV に収めている。
+// こってり度（richness_mv）は入れていません。IoT チームが実際に測っているのは
+// スープ温度（DS18B20）と塩分濃度（SEN0308）の 2 つだけなので、
+// 測っていない項目がデモ画面に出ると説明できなくなるためです。
 const STYLE_RANGE = {
-  塩: { salinity: [0.8, 1.1], richness: [1100, 1250] },
-  醤油: { salinity: [1.1, 1.4], richness: [1200, 1350] },
-  味噌: { salinity: [1.3, 1.6], richness: [1350, 1500] },
-  豚骨: { salinity: [1.5, 1.8], richness: [1450, 1620] },
-  その他: { salinity: [1.0, 1.5], richness: [1250, 1450] },
+  塩: { salinity: [0.8, 1.1] },
+  醤油: { salinity: [1.1, 1.4] },
+  味噌: { salinity: [1.3, 1.6] },
+  豚骨: { salinity: [1.5, 1.8] },
+  その他: { salinity: [1.0, 1.5] },
 };
 
 const MEMOS = [
@@ -340,7 +343,6 @@ for (const [shopId, style] of allShops) {
 
   for (let i = 0; i < count; i++) {
     const salinity = rand(range.salinity[0], range.salinity[1], 2);
-    const richness = Math.round(rand(range.richness[0], range.richness[1], 0));
     // TDS は塩分に比例する生値。ざっくり salinity% × 10000ppm 前後
     const tds = Math.round(salinity * 10000 + rand(-600, 600, 0));
     const temp = rand(72, 84, 1);
@@ -350,7 +352,7 @@ for (const [shopId, style] of allShops) {
     ).toISOString();
 
     measurementRows.push(
-      `  (${q(shopId)}, ${salinity}, ${tds}, ${richness}, ${temp}, ${q(memo)}, ${q(measuredAt)})`,
+      `  (${q(shopId)}, ${salinity}, ${tds}, ${temp}, ${q(memo)}, ${q(measuredAt)})`,
     );
   }
 }
@@ -360,10 +362,11 @@ say(
   `-- ラーメン計測（全 ${allShops.length} 店に 2〜4 件ずつ、計 ${measurementRows.length} 件）`,
 );
 say("-- ------------------------------------------------------------");
-say("-- ジャンルごとに値の範囲を変えているので、地図のピンの色が");
+say("-- ジャンルごとに塩分の範囲を変えているので、地図のピンの色が");
 say("-- 豚骨＝濃厚（赤）、塩＝あっさり（青）のように分かれます。");
+say("-- こってり度（richness_mv）は実際に測っていないので入れていません。");
 say(
-  "insert into ramen_measurements (shop_id, salinity_pct, tds_ppm, richness_mv, temp_c, memo, measured_at) values\n" +
+  "insert into ramen_measurements (shop_id, salinity_pct, tds_ppm, temp_c, memo, measured_at) values\n" +
     measurementRows.join(",\n") +
     ";",
 );
