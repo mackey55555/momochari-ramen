@@ -12,7 +12,13 @@ import {
 } from "react-leaflet";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { Shop, RidePoint } from "@/types";
+import {
+  summarizeTaste,
+  tasteColor,
+  tasteLabel,
+  type TasteSummary,
+} from "@/lib/taste";
+import type { Shop, RidePoint, RamenMeasurement } from "@/types";
 
 // 岡山駅の座標
 const OKAYAMA_STATION: [number, number] = [34.6664, 133.9183];
@@ -29,6 +35,30 @@ L.Icon.Default.mergeOptions({
   iconUrl: "/leaflet/marker-icon.png",
   shadowUrl: "/leaflet/marker-shadow.png",
 });
+
+/**
+ * お店のピンを作る。
+ *
+ * Leaflet の標準ピンは画像なので色を変えられない。
+ * divIcon を使うと HTML をそのままピンにできるので、味の傾向で色を塗り分けている。
+ */
+function createShopIcon(summary: TasteSummary) {
+  const color = tasteColor(summary.level);
+  return L.divIcon({
+    className: "", // Leaflet が付ける初期スタイルを消す
+    // 走行データの点（小さい丸）と見分けがつくように、お店には 🍜 を入れている
+    html: `<div style="
+      width: 26px; height: 26px; border-radius: 9999px;
+      background: ${color}; border: 3px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; line-height: 1;
+    ">🍜</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13], // 円の中心をお店の位置に合わせる
+    popupAnchor: [0, -13],
+  });
+}
 
 function getAccelColor(value: number | null) {
   if (value === null) return "gray";
@@ -54,6 +84,7 @@ function getSpeedColor(value: number | null) {
 export default function Map() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [ridePoints, setRidePoints] = useState<RidePoint[]>([]);
+  const [measurements, setMeasurements] = useState<RamenMeasurement[]>([]);
   const [metric, setMetric] = useState<"accel" | "co2" | "speed">("accel");
 
   useEffect(() => {
@@ -66,7 +97,15 @@ export default function Map() {
       .select("*")
       .limit(2000)
       .then(({ data }) => setRidePoints(data ?? []));
+    supabase
+      .from("ramen_measurements")
+      .select("*")
+      .then(({ data }) => setMeasurements(data ?? []));
   }, []);
+
+  /** お店 1 件分の味の傾向を出す（そのお店の計測だけ集めて渡す） */
+  const getTaste = (shop: Shop): TasteSummary =>
+    summarizeTaste(measurements.filter((m) => m.shop_id === shop.id));
 
   const getPointColor = (p: RidePoint) => {
     if (metric === "accel") return getAccelColor(p.accel_rms);
@@ -131,26 +170,68 @@ export default function Map() {
           />
         ))}
 
-        {shops.map((shop) => (
-          <Marker key={shop.id} position={[shop.lat, shop.lng]}>
-            <Popup>
-              <div className="flex flex-col gap-1 text-center">
-                <span className="font-bold text-gray-900">{shop.name}</span>
-                <span className="text-xs text-gray-500">{shop.style}</span>
-                <Link
-                  href={`/shops/${shop.id}`}
-                  className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
-                >
-                  詳細を見る
-                </Link>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {shops.map((shop) => {
+          const taste = getTaste(shop);
+          return (
+            <Marker
+              key={shop.id}
+              position={[shop.lat, shop.lng]}
+              icon={createShopIcon(taste)}
+            >
+              <Popup>
+                <div className="flex flex-col gap-1 text-center">
+                  <span className="font-bold text-gray-900">{shop.name}</span>
+                  <span className="text-xs text-gray-500">{shop.style}</span>
+
+                  {/* 味の傾向。計測がまだ無いお店は、その旨だけ出す */}
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: tasteColor(taste.level) }}
+                  >
+                    {tasteLabel(taste.level)}
+                    {taste.count > 0 && `（${taste.count}件の計測から）`}
+                  </span>
+
+                  {taste.avgSalinity !== null && (
+                    <span className="text-xs text-gray-500">
+                      塩分 {taste.avgSalinity.toFixed(1)}%
+                    </span>
+                  )}
+                  {taste.avgRichness !== null && (
+                    <span className="text-xs text-gray-500">
+                      こってり度 {Math.round(taste.avgRichness)}mV
+                    </span>
+                  )}
+
+                  <Link
+                    href={`/shops/${shop.id}`}
+                    className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
+                  >
+                    詳細を見る
+                  </Link>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
 
       {/* 凡例（Task 13 対応） */}
       <div className="absolute right-4 bottom-8 z-[1000] rounded bg-white/90 p-3 text-xs shadow">
+        {/* お店のピンの色：味の傾向 */}
+        <p className="mb-1 font-medium">お店（味の傾向）</p>
+        {(["rich", "medium", "light", "unknown"] as const).map((level) => (
+          <p key={level}>
+            <span
+              className="mr-1 inline-block h-3 w-3 rounded-full align-middle"
+              style={{ backgroundColor: tasteColor(level) }}
+            />
+            {tasteLabel(level)}
+          </p>
+        ))}
+
+        <hr className="my-2 border-gray-200" />
+
         <p className="mb-1 font-medium">
           {metric === "accel" && "振動（道の荒れ具合）"}
           {metric === "co2" && "二酸化炭素（CO2）"}
