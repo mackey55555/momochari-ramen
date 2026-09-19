@@ -41,3 +41,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ラズパイ地図アプリ（iot/mapapp/）が生成・使用するもの
+# 地図タイルは数十MB あるうえ OpenStreetMap から取り直せるので、リポジトリには入れない
+/iot/mapapp/tiles/
+/iot/mapapp/shops_cache.json
+/iot/mapapp/_fake/
+__pycache__/
+*.pyc
