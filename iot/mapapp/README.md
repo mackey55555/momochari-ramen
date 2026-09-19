@@ -182,37 +182,112 @@ video=HDMI-A-1:1280x720M@60,rotate=90
 
 ## 電源を入れたら自動で起動させる
 
-### 1. 自動ログインにする
+仕組みはこうです。どこか 1 つ欠けても動かないので、順番に確認してください。
+
+```
+電源 ON
+  → getty@tty1 が起動          … ★1
+  → pi で自動ログイン           … ★2
+  → ~/.bash_profile が startx   … ★3
+  → ~/.xinitrc が run.sh を起動 … ★4
+  → 地図が出る
+```
+
+### 0. 初回セットアップウィザードを片付ける（★1 の前提）
+
+**SSH だけで作業していると、ここで必ずハマります。**
+
+Raspberry Pi OS には初回起動時にユーザーを作るウィザード（`userconfig.service`）があり、
+これが tty1 を占有します。SSH しか使っていないと物理画面を見ないので、
+ウィザードが待機したままになっていることに気づけません。
+
+```bash
+systemctl is-enabled userconfig.service
+```
+
+`enabled` と返ってきたら、`pi` ユーザーは既にあるので不要です。止めてください。
+
+```bash
+sudo systemctl disable --now userconfig.service
+```
+
+> **止めたあとが本題です。** このウィザードは「完了したら getty@tty1 を有効に戻す」
+> 動きをするため、完了前に止めると **getty@tty1 が無効のまま残ります**。
+> `autologin.conf` があっても getty がいないので自動ログインは発火しません。
+> 次の手順で必ず有効化してください。
+
+```bash
+sudo systemctl enable --now getty@tty1.service
+systemctl is-enabled getty@tty1.service   # → enabled
+```
+
+### 1. 自動ログインにする（★2）
 
 ```bash
 sudo raspi-config
-# → 1 System Options → S5 Boot / Auto Login → B2 Console Autologin
 ```
 
-### 2. `~/.xinitrc` を作る
+**Boot と Auto Login は別項目です**（raspi-config の版によっては 1 つにまとまっています）。
+両方やってください。
+
+| 項目              | 選ぶもの                                                             |
+| ----------------- | -------------------------------------------------------------------- |
+| **S5 Boot**       | `B1 Console Text console`（`B2 Desktop` ではありません）             |
+| **S6 Auto Login** | 「Would you like to automatically log in to the console?」→ **はい** |
+
+`Console autologin is enabled` と出れば成功です。
+確認メッセージが `to the console` になっていれば、S5 が Console になっている証拠です。
+
+### 2. `~/.xinitrc` を作る（★4）
 
 画面の回転も省電力の解除も `run.sh` の中でやっているので、呼ぶだけです。
-
-```sh
-#!/bin/sh
-exec /home/pi/momochari/mapapp/run.sh
-```
+**出力をファイルに残しておいてください。** X が起動すると画面が切り替わって
+エラーが読めなくなるので、これが無いと原因調査が詰みます。
 
 ```bash
+cat > ~/.xinitrc <<'EOF'
+#!/bin/sh
+exec /home/pi/momochari/mapapp/run.sh > /tmp/mapapp.log 2>&1
+EOF
 chmod +x ~/.xinitrc
 ```
 
-### 3. `~/.bash_profile` に追記
+### 3. `~/.bash_profile` を作る（★3）
 
-```sh
+```bash
+cat > ~/.bash_profile <<'EOF'
+# .bash_profile を作ると bash は .profile を読まなくなるので、明示的に読む
+[ -f ~/.profile ] && . ~/.profile
+
 # tty1（＝モニタに繋がっている画面）でログインしたときだけ X を起動する。
-# この条件を付けないと、SSH でログインするたびに X が立ち上がろうとします。
+# この条件が無いと、SSH でログインするたびに X が立ち上がろうとします。
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
   exec startx
 fi
+EOF
 ```
 
-これで、電源を入れれば地図が出てくる状態になります。
+### 4. 動かして確認する
+
+再起動せずに試せます。
+
+```bash
+sudo systemctl restart getty@tty1.service
+```
+
+モニタに地図が出れば完成です。最後に `sudo reboot` で、電源 ON からの通しも確認してください。
+
+> **黒い画面とログが繰り返し流れるループに入ったら**、すぐ止めてください。
+>
+> ```bash
+> sudo systemctl stop getty@tty1.service
+> cat /tmp/mapapp.log
+> ```
+>
+> これは `.xinitrc` が起動しようとしたものが即終了したときの症状です
+> （X が落ちる → 自動ログインし直し → また startx、の繰り返し）。
+> いちばん多い原因は **`run.sh` が存在しない**ことです。
+> `ls -l ~/momochari/mapapp/run.sh` で確認し、無ければアプリを取り直してください。
 
 ---
 
@@ -307,21 +382,25 @@ API      : https://momochari-ramen.vercel.app/api/shops
 ============================================================
 ```
 
-| 症状                                        | 確認すること                                                                                                                                         |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 文字が全部 □□□                              | `sudo apt install fonts-noto-cjk`                                                                                                                    |
-| `No module named 'tkinter'`                 | `sudo apt install python3-tk`                                                                                                                        |
-| 地図が背景色のまま                          | タイル未取得。`tools/download_tiles.py` を実行して `tiles/` を送る                                                                                   |
-| 地図が "Access blocked" だらけ              | OSM のタイルを掴んでいる。`tiles/` を消して取り直す（今は地理院タイルを使う設定）                                                                    |
-| ウィンドウが真っ黒（Mac のみ）              | Apple 同梱の Tk 8.5.9 は今の macOS で描画できない。`brew install python-tk@3.14` を入れ `python3.14` で起動                                          |
-| 「GPS を待っています…」から進まない         | `cat /run/momochari/gps.json` で `ts` が毎秒変わっているか確認。変わっていなければセンサー側の問題（[docs/device-app.md](../../docs/device-app.md)） |
-| 「お店の一覧を取得中…」から進まない         | ネットに繋がっているか。`curl https://momochari-ramen.vercel.app/api/shops`                                                                          |
-| 計測結果が出ない                            | `cat /run/momochari/ramen.json` に `ts` が入っているか。無いと無視されます                                                                           |
-| 動きがカクカク                              | 画面の解像度が高すぎる。`cmdline.txt` の `video=...1280x720M@60,rotate=90` で落とす。`MOMOCHARI_MOVE_THRESHOLD_M` を大きくするのも効く               |
-| `Cannot open /dev/tty0 (Permission denied)` | SSH から `startx` している。`xserver-xorg-legacy` を入れて `/etc/X11/Xwrapper.config` を設定（セットアップ手順1を参照）                              |
-| 画面が横向きのまま                          | `x11-xserver-utils`（`xrandr`）が入っているか。向きが逆なら `MOMOCHARI_ROTATE=right`                                                                 |
-| ウィンドウの周りに黒い余白                  | 古い版を使っている。`curl` で取り直す（今の版は画面サイズを自動判定します）                                                                          |
-| しばらくすると画面が消える                  | `~/.xinitrc` の `xset s off` `xset -dpms`                                                                                                            |
+| 症状                                        | 確認すること                                                                                                                                                                                                               |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 文字が全部 □□□                              | `sudo apt install fonts-noto-cjk`                                                                                                                                                                                          |
+| `No module named 'tkinter'`                 | `sudo apt install python3-tk`                                                                                                                                                                                              |
+| 地図が背景色のまま                          | タイル未取得。`tools/download_tiles.py` を実行して `tiles/` を送る                                                                                                                                                         |
+| 地図が "Access blocked" だらけ              | OSM のタイルを掴んでいる。`tiles/` を消して取り直す（今は地理院タイルを使う設定）                                                                                                                                          |
+| ウィンドウが真っ黒（Mac のみ）              | Apple 同梱の Tk 8.5.9 は今の macOS で描画できない。`brew install python-tk@3.14` を入れ `python3.14` で起動                                                                                                                |
+| 「GPS を待っています…」から進まない         | `cat /run/momochari/gps.json` で `ts` が毎秒変わっているか確認。変わっていなければセンサー側の問題（[docs/device-app.md](../../docs/device-app.md)）                                                                       |
+| 「お店の一覧を取得中…」から進まない         | ネットに繋がっているか。`curl https://momochari-ramen.vercel.app/api/shops`                                                                                                                                                |
+| 計測結果が出ない                            | `cat /run/momochari/ramen.json` に `ts` が入っているか。無いと無視されます                                                                                                                                                 |
+| 動きがカクカク                              | 画面の解像度が高すぎる。`cmdline.txt` の `video=...1280x720M@60,rotate=90` で落とす。`MOMOCHARI_MOVE_THRESHOLD_M` を大きくするのも効く                                                                                     |
+| 黒画面とログが繰り返し流れるループ          | `.xinitrc` が起動するものが即終了している。`sudo systemctl stop getty@tty1.service` で止めて `/tmp/mapapp.log` を読む。最多の原因は `run.sh` が無いこと（アプリを取り直す）                                                |
+| 物理画面に `Please enter new username:`     | 初回セットアップウィザードが tty1 を占有している。**ユーザー名を入力しないこと**（`/home/pi` のパスが壊れます）。`sudo systemctl disable --now userconfig.service` のあと `sudo systemctl enable --now getty@tty1.service` |
+| 自動ログインしない（画面が止まる）          | `systemctl is-enabled getty@tty1.service` が `disabled` なら `sudo systemctl enable --now getty@tty1.service`                                                                                                              |
+| 自動起動しないが手動なら動く                | `~/.xinitrc` と `~/.bash_profile` があるか。`ls -l ~/.xinitrc ~/.bash_profile`                                                                                                                                             |
+| `Cannot open /dev/tty0 (Permission denied)` | SSH から `startx` している。`xserver-xorg-legacy` を入れて `/etc/X11/Xwrapper.config` を設定（セットアップ手順1を参照）                                                                                                    |
+| 画面が横向きのまま                          | `x11-xserver-utils`（`xrandr`）が入っているか。向きが逆なら `MOMOCHARI_ROTATE=right`                                                                                                                                       |
+| ウィンドウの周りに黒い余白                  | 古い版を使っている。`curl` で取り直す（今の版は画面サイズを自動判定します）                                                                                                                                                |
+| しばらくすると画面が消える                  | `~/.xinitrc` の `xset s off` `xset -dpms`                                                                                                                                                                                  |
 
 ### それでも遅いとき
 
