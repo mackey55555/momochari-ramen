@@ -54,17 +54,23 @@ function createShopIcon(summary: TasteSummary) {
   });
 }
 
+// 振動は MPU-6050 の実測に合わせた目安。
+// 止まっていると 0.01g、手で揺らして 0.5g くらいなので、
+// 自転車で走ったときの「ガタガタ」は 0.6g も出れば十分に荒れた道。
 function getAccelColor(value: number | null) {
   if (value === null) return "gray";
-  if (value > 1.5) return "red";
-  if (value > 0.8) return "orange";
+  if (value > 0.6) return "red";
+  if (value > 0.3) return "orange";
   return "green";
 }
 
+// CO2 は「屋外」の目安で色を分ける。
+// きれいな空気が 420ppm 前後、交通量の多い道で 700ppm 前後なので、
+// 室内向けの 1000/1500ppm だと屋外では全部みどりになってしまう。
 function getCo2Color(value: number | null) {
   if (value === null) return "gray";
-  if (value > 1500) return "red";
-  if (value > 1000) return "orange";
+  if (value > 700) return "red";
+  if (value > 550) return "orange";
   return "green";
 }
 
@@ -93,7 +99,7 @@ export default function Map() {
     supabase
       .from("ride_points")
       .select("*")
-      .limit(2000)
+      .limit(3000)
       .then(({ data }) => setRidePoints(data ?? []));
     supabase
       .from("ramen_measurements")
@@ -236,15 +242,15 @@ export default function Map() {
           <>
             <p>
               <span className="mr-1 inline-block h-3 w-3 rounded-full bg-red-500 align-middle" />
-              高い（1500〜）
+              多い（700ppm〜）
             </p>
             <p>
               <span className="mr-1 inline-block h-3 w-3 rounded-full bg-orange-500 align-middle" />
-              やや高い（1000〜）
+              やや多い（550〜700ppm）
             </p>
             <p>
               <span className="mr-1 inline-block h-3 w-3 rounded-full bg-green-500 align-middle" />
-              低い（〜1000）
+              きれい（〜550ppm）
             </p>
           </>
         )}
