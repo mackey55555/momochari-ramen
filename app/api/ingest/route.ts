@@ -39,6 +39,8 @@ import type { TablesInsert } from "@/lib/database.types";
  * - points は配列なので、まとめ送り（バッチ）ができます。
  *   1 点ずつ毎秒送るより、10〜60 点ためて送るほうが電池にも回線にも優しいです。
  * - lat / lng / recorded_at は必須。accel_rms / co2_ppm / speed_kmh は省略可（センサーが無い場合など）。
+ * - GPS が付いていない機体は lat / lng を 0 で送ってください。
+ *   直近に届いた「GPS 付きの点」の位置を借りて保存します（詳しくは下の isMissingPosition 参照）。
  * - recorded_at は ISO 8601 形式。JavaScript なら new Date().toISOString() が確実で、
  *   "2026-09-19T01:00:00.000Z" の形（世界標準時）になる。
  *   自分で日時の文字列を組み立てると 9 時間ずれる事故が起きるので避けること。
@@ -68,6 +70,39 @@ function isOmitted(value: unknown): boolean {
 /** 数値として使える値かどうか */
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * 「GPS が付いていないラズパイから送られてきた点」かどうか。
+ *
+ * センサーを 1 台のラズパイに全部つなげなかったので、GPS が無い機体からも
+ * データが届きます。その場合は lat / lng を 0 で送ってもらう約束にしてあり、
+ * ここで見分けて、あとから直近の位置で埋めます。
+ *
+ * ちょうど 0 だけでなく極小の値も拾うのは、計算の途中で 0.0000001 のような
+ * 値になることがあるためです。緯度経度 0 の地点はアフリカ沖の海の上なので、
+ * 本物の計測値と紛れる心配はありません。
+ */
+function isMissingPosition(lat: number, lng: number) {
+  return Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001;
+}
+
+/** 直近の「GPS がちゃんと入っている点」を 1 件取ってくる */
+async function findLatestPosition() {
+  const { data, error } = await supabase
+    .from("ride_points")
+    .select("lat, lng, recorded_at")
+    // lat か lng のどちらかが 0 でない ＝ GPS が入っている点
+    .or("lat.neq.0,lng.neq.0")
+    .order("recorded_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("直近の位置の取得に失敗:", error);
+    return null;
+  }
+  return data;
 }
 
 export async function POST(request: Request) {
@@ -156,6 +191,7 @@ export async function POST(request: Request) {
 
     rows.push({
       device_id: deviceId,
+      // GPS が無い機体からの 0 は、あとでまとめて直近の位置に差し替える
       lat,
       lng,
       // センサーが付いていない場合は null で入れておく
@@ -166,7 +202,37 @@ export async function POST(request: Request) {
     });
   }
 
-  // --- 4. DB に保存 -----------------------------------------------
+  // --- 4. 位置が無い点を、直近の位置で埋める ----------------------
+  // GPS が付いていないラズパイは lat / lng を 0 で送ってきます。そのまま保存すると
+  // アフリカ沖に点が並んでしまうので、直近に届いた「GPS 付きの点」の位置を借ります。
+  //
+  // 1 リクエストにつき 1 回だけ問い合わせれば十分なので、ループの外でまとめて処理します。
+  const missingRows = rows.filter((row) => isMissingPosition(row.lat, row.lng));
+  let borrowedFrom: string | null = null;
+
+  if (missingRows.length > 0) {
+    const latest = await findLatestPosition();
+
+    if (!latest) {
+      // 借りられる位置がまだ 1 件も無い（GPS 側が一度も送っていない）状態。
+      // 0 のまま保存しても使えないデータになるだけなので、理由を伝えて弾く。
+      return NextResponse.json(
+        {
+          error:
+            "lat / lng が 0 で届きましたが、借りられる位置がまだ 1 件もありません。GPS を載せた機体から先にデータを送ってください",
+        },
+        { status: 400 },
+      );
+    }
+
+    for (const row of missingRows) {
+      row.lat = latest.lat;
+      row.lng = latest.lng;
+    }
+    borrowedFrom = latest.recorded_at;
+  }
+
+  // --- 5. DB に保存 -----------------------------------------------
   // 配列を渡すと、まとめて INSERT（既に存在する場合は無視）してくれる（1 件ずつより速い）。
   const { error } = await supabase.from("ride_points").upsert(rows, {
     onConflict: "device_id,recorded_at",
@@ -182,5 +248,13 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ inserted: rows.length });
+  // 位置を借りたときは、それが分かるように返す。
+  // 送った側が「自分の点がどこに置かれたか」を気づけるようにするため。
+  return NextResponse.json({
+    inserted: rows.length,
+    ...(borrowedFrom !== null && {
+      position_borrowed: missingRows.length,
+      position_borrowed_from: borrowedFrom,
+    }),
+  });
 }
