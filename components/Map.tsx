@@ -3,14 +3,7 @@
 import { useEffect, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  CircleMarker,
-} from "react-leaflet";
-import Link from "next/link";
+import { MapContainer, TileLayer, Marker, CircleMarker } from "react-leaflet";
 import { supabase } from "@/lib/supabase";
 import {
   summarizeTaste,
@@ -18,6 +11,7 @@ import {
   tasteLabel,
   type TasteSummary,
 } from "@/lib/taste";
+import ShopDetailPanel from "./ShopDetailPanel";
 import type { Shop, RidePoint, RamenMeasurement } from "@/types";
 
 // 岡山駅の座標
@@ -87,6 +81,10 @@ export default function Map() {
   const [measurements, setMeasurements] = useState<RamenMeasurement[]>([]);
   const [metric, setMetric] = useState<"accel" | "co2" | "speed">("accel");
 
+  // 詳細パネルで開いているお店の id。null なら閉じている。
+  // （お店そのものではなく id を持っておくと、データを取り直しても中身がずれない）
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+
   useEffect(() => {
     supabase
       .from("shops")
@@ -103,9 +101,16 @@ export default function Map() {
       .then(({ data }) => setMeasurements(data ?? []));
   }, []);
 
-  /** お店 1 件分の味の傾向を出す（そのお店の計測だけ集めて渡す） */
+  /** お店 1 件分の計測だけを取り出す */
+  const measurementsOf = (shopId: string) =>
+    measurements.filter((m) => m.shop_id === shopId);
+
+  /** お店 1 件分の味の傾向を出す */
   const getTaste = (shop: Shop): TasteSummary =>
-    summarizeTaste(measurements.filter((m) => m.shop_id === shop.id));
+    summarizeTaste(measurementsOf(shop.id));
+
+  /** 詳細パネルに出すお店（選ばれていなければ null） */
+  const selectedShop = shops.find((shop) => shop.id === selectedShopId) ?? null;
 
   const getPointColor = (p: RidePoint) => {
     if (metric === "accel") return getAccelColor(p.accel_rms);
@@ -170,51 +175,23 @@ export default function Map() {
           />
         ))}
 
-        {shops.map((shop) => {
-          const taste = getTaste(shop);
-          return (
-            <Marker
-              key={shop.id}
-              position={[shop.lat, shop.lng]}
-              icon={createShopIcon(taste)}
-            >
-              <Popup>
-                <div className="flex flex-col gap-1 text-center">
-                  <span className="font-bold text-gray-900">{shop.name}</span>
-                  <span className="text-xs text-gray-500">{shop.style}</span>
-
-                  {/* 味の傾向。計測がまだ無いお店は、その旨だけ出す */}
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: tasteColor(taste.level) }}
-                  >
-                    {tasteLabel(taste.level)}
-                    {taste.count > 0 && `（${taste.count}件の計測から）`}
-                  </span>
-
-                  {taste.avgSalinity !== null && (
-                    <span className="text-xs text-gray-500">
-                      塩分 {taste.avgSalinity.toFixed(1)}%
-                    </span>
-                  )}
-                  {taste.avgRichness !== null && (
-                    <span className="text-xs text-gray-500">
-                      こってり度 {Math.round(taste.avgRichness)}mV
-                    </span>
-                  )}
-
-                  <Link
-                    href={`/shops/${shop.id}`}
-                    className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
-                  >
-                    詳細を見る
-                  </Link>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+        {shops.map((shop) => (
+          <Marker
+            key={shop.id}
+            position={[shop.lat, shop.lng]}
+            icon={createShopIcon(getTaste(shop))}
+            // ピンを押したら、右（スマホでは下）から詳細パネルを出す
+            eventHandlers={{ click: () => setSelectedShopId(shop.id) }}
+          />
+        ))}
       </MapContainer>
+
+      {/* お店の詳細パネル（ピンを押すと出てくる） */}
+      <ShopDetailPanel
+        shop={selectedShop}
+        measurements={selectedShop ? measurementsOf(selectedShop.id) : []}
+        onClose={() => setSelectedShopId(null)}
+      />
 
       {/* 凡例（Task 13 対応） */}
       <div className="absolute right-4 bottom-8 z-[1000] rounded bg-white/90 p-3 text-xs shadow">
