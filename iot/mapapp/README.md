@@ -134,9 +134,11 @@ scp -r tiles pi@raspi.local:~/momochari/mapapp/
 ### 5. 動かす
 
 ```bash
-cd ~/momochari/mapapp
-startx ./app.py
+startx /usr/bin/python3 /home/pi/momochari/mapapp/app.py
 ```
+
+> `startx ./app.py` とは書けません。`app.py` に shebang も実行権限も付けていないので、
+> 起動するプログラム（`/usr/bin/python3`）から絶対パスで指定してください。
 
 終了は **Esc キー**です（全画面なので閉じるボタンがありません）。
 
