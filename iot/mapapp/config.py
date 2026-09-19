@@ -51,15 +51,27 @@ SHOPS_CACHE_FILE = os.environ.get(
 # ============================================================
 # 画面
 # ============================================================
-# 14 インチのモバイルモニタを縦置きで使う想定。
+# モバイルモニタを縦置きで使う想定。
 #
-# ★重要★ モニタが 1920x1080 でも、フレームバッファは 720x1280 に落としてください。
-# 1080x1920 をそのまま描くと画素数が 2.25 倍になり、Zero W では耐えられません。
-# /boot/firmware/config.txt に次の 2 行:
-#     framebuffer_width=720
-#     framebuffer_height=1280
-SCREEN_WIDTH = int(os.environ.get("MOMOCHARI_SCREEN_WIDTH", "720"))
-SCREEN_HEIGHT = int(os.environ.get("MOMOCHARI_SCREEN_HEIGHT", "1280"))
+# 既定は「画面の実サイズいっぱい」です。起動時に Tk へ問い合わせて決めるので、
+# ここでは None にしておきます（app.py で埋まります）。
+# 画面の解像度や回転を変えても、アプリ側は何も設定しなくて全画面になります。
+#
+# 環境変数を指定したときだけ、その大きさのウィンドウになります。
+# 手元の Mac で試すとき（画面からはみ出すのを防ぐ）に使ってください:
+#     MOMOCHARI_SCREEN_WIDTH=480 MOMOCHARI_SCREEN_HEIGHT=854 python3 app.py
+#
+# なお、描く画素数が増えるほど当然重くなります。1080x1920（約200万画素）が
+# つらい場合は、アプリ側ではなく画面の解像度ごと落とすほうが効果的です。
+# /boot/firmware/cmdline.txt の行末に（Bookworm 以降は KMS が標準なので config.txt ではなくこちら）:
+#     video=HDMI-A-1:1280x720M@60,rotate=90   → 720x1280 の縦画面になる
+def _optional_int(name):
+    value = os.environ.get(name)
+    return int(value) if value else None
+
+
+SCREEN_WIDTH = _optional_int("MOMOCHARI_SCREEN_WIDTH")
+SCREEN_HEIGHT = _optional_int("MOMOCHARI_SCREEN_HEIGHT")
 
 # 画面の何割を地図にするか。残りが下部パネルになる。
 # 縦画面なので「上に地図・下に情報」が素直に収まる。

@@ -44,9 +44,18 @@ class App:
         self.root.title("momochari-ramen")
         self.root.configure(bg="#000000")
 
+        # 画面の大きさを決める。
+        #
+        # 既定では Tk に実際の画面サイズを聞いて、そのまま使う。
+        # こうしておくと、モニタを替えても解像度や向きを変えても、
+        # アプリ側の設定を触らずに全画面になる。
+        # 環境変数で指定されていればそちらを優先する（Mac で試すとき用）。
+        self.screen_width = config.SCREEN_WIDTH or self.root.winfo_screenwidth()
+        self.screen_height = config.SCREEN_HEIGHT or self.root.winfo_screenheight()
+
         # ウィンドウマネージャを入れない構成（Raspberry Pi OS Lite + xinit）では
         # 装飾が無いので、画面サイズちょうどの geometry を指定すれば全画面になる。
-        self.root.geometry(f"{config.SCREEN_WIDTH}x{config.SCREEN_HEIGHT}+0+0")
+        self.root.geometry(f"{self.screen_width}x{self.screen_height}+0+0")
         if config.FULLSCREEN:
             try:
                 # デスクトップ環境や Mac で試すときのため。
@@ -59,13 +68,13 @@ class App:
         # 現地でキーボードを挿したときにこれが無いと詰む。
         self.root.bind("<Escape>", lambda _event: self.root.destroy())
 
-        map_height = int(config.SCREEN_HEIGHT * config.MAP_RATIO)
-        panel_height = config.SCREEN_HEIGHT - map_height
+        map_height = int(self.screen_height * config.MAP_RATIO)
+        panel_height = self.screen_height - map_height
 
-        self.mapview = MapView(self.root, config.SCREEN_WIDTH, map_height)
+        self.mapview = MapView(self.root, self.screen_width, map_height)
         self.mapview.canvas.pack(side="top")
 
-        self.panel = Panel(self.root, config.SCREEN_WIDTH, panel_height)
+        self.panel = Panel(self.root, self.screen_width, panel_height)
         self.panel.frame.pack(side="bottom", fill="both", expand=True)
 
         # --- お店の一覧 ---------------------------------------------
@@ -124,6 +133,8 @@ class App:
         print("=" * 60)
         print("momochari-ramen 地図アプリ")
         print("=" * 60)
+        source = "環境変数で指定" if config.SCREEN_WIDTH else "画面の実サイズ"
+        print(f"画面     : {self.screen_width} x {self.screen_height}（{source}）")
         print(f"受け渡し : {handoff.describe_handoff_dir()}")
         print(f"地図タイル: {config.TILE_DIR}")
 

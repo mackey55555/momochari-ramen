@@ -33,45 +33,24 @@
 
 ## 必要なもの
 
-|                |                                                      |
-| -------------- | ---------------------------------------------------- |
-| 本体           | Raspberry Pi Zero W                                  |
-| 画面           | 14 インチのモバイルモニタ（縦置き）＋ mini-HDMI 変換 |
-| OS             | **Raspberry Pi OS Lite (Bullseye)** を推奨           |
-| Python         | 3.9 以上（OS に最初から入っています）                |
-| 追加ライブラリ | **なし**（標準ライブラリだけで動きます）             |
+|                |                                                   |
+| -------------- | ------------------------------------------------- |
+| 本体           | Raspberry Pi Zero 2 W（arm64）で動作確認済み      |
+| 画面           | モバイルモニタ（縦置きで使う）＋ mini-HDMI 変換   |
+| OS             | Raspberry Pi OS **Lite**（Trixie で動作確認済み） |
+| Python         | 3.9 以上（OS に最初から入っています）             |
+| 追加ライブラリ | **なし**（標準ライブラリだけで動きます）          |
 
-> モバイルモニタは自前の電源が必要です。Zero W からは給電できません。
+> モバイルモニタは自前の電源が必要です。Zero 2 W からは給電できません。
 
-### なぜ Bullseye 推奨か
-
-画面の回転設定が、Bookworm（KMS ドライバが標準）だと別のやり方になり、
-Zero W まわりの情報が少ないためです。Bookworm を使う場合は
-「画面を縦にする」の項を読み替えてください。
+画面の大きさはアプリが起動時に自動で判定するので、解像度や向きを変えても
+アプリ側の設定を触る必要はありません。
 
 ---
 
 ## セットアップ
 
-### 1. 画面の設定（`/boot/firmware/config.txt`）
-
-```ini
-# ★重要★ フレームバッファを 720x1280 に落とす
-#
-# モニタが 1920x1080 でも、そのまま縦(1080x1920)で使うと約200万画素。
-# ARMv6 シングルコアの Python では描画が追いつきません。
-# 720x1280 なら描画量が 1/2.25 になり、14インチなら文字も十分読めます。
-framebuffer_width=720
-framebuffer_height=1280
-
-# 画面を縦にする（0=通常, 1=90度, 2=180度, 3=270度）
-display_rotate=1
-```
-
-> **Bookworm の場合** `display_rotate` は効きません。`/boot/firmware/cmdline.txt` の
-> 行末に `video=HDMI-A-1:720x1280M@60,rotate=90` を追記してください（改行を入れないこと）。
-
-### 2. 必要なパッケージ
+### 1. 必要なパッケージ
 
 Raspberry Pi OS Lite にはデスクトップ環境が入っていませんが、
 **デスクトップは不要です。X だけあれば動きます。**
@@ -79,7 +58,7 @@ Raspberry Pi OS Lite にはデスクトップ環境が入っていませんが�
 ```bash
 sudo apt update
 sudo apt install --no-install-recommends \
-  xserver-xorg xinit x11-xserver-utils \
+  xserver-xorg xserver-xorg-legacy xinit x11-xserver-utils \
   python3-tk \
   fonts-noto-cjk
 ```
@@ -87,22 +66,45 @@ sudo apt install --no-install-recommends \
 | パッケージ             | 無いとどうなるか                                                            |
 | ---------------------- | --------------------------------------------------------------------------- |
 | `xserver-xorg` `xinit` | 画面が出ない                                                                |
+| `xserver-xorg-legacy`  | **SSH から `startx` できない**（下記）                                      |
+| `x11-xserver-utils`    | `xrandr` が無く、画面を縦にできない                                         |
 | `python3-tk`           | `ModuleNotFoundError: No module named 'tkinter'`（Lite には入っていません） |
 | `fonts-noto-cjk`       | 日本語が全部 □□□（豆腐）になる                                              |
+
+> **`xserver-xorg-legacy` を忘れないでください。** `--no-install-recommends` を付けると
+> 一緒に入りません。無いまま SSH から `startx` すると、こう出て起動できません。
+>
+> ```
+> parse_vt_settings: Cannot open /dev/tty0 (Permission denied)
+> ```
+>
+> あわせて、SSH から起動したい場合は次も必要です（ラズパイに直接キーボードを
+> 挿して使うなら不要）。
+>
+> ```bash
+> sudo tee /etc/X11/Xwrapper.config >/dev/null <<'EOF'
+> allowed_users=anybody
+> needs_root_rights=yes
+> EOF
+> ```
 
 ウィンドウマネージャは**入れません**。タイトルバーも何も無いので、
 ウィンドウが自動的に画面いっぱいになります。
 
-### 3. アプリを置く
+### 2. アプリを置く
+
+Git は不要です。公開リポジトリなので、そのままダウンロードできます。
 
 ```bash
-# 手元のパソコンから
-scp -r iot/mapapp pi@raspi.local:~/momochari/
+mkdir -p ~/momochari && cd ~/momochari
+curl -sL https://github.com/mackey55555/momochari-ramen/archive/refs/heads/main.tar.gz \
+  | tar xz --strip-components=2 momochari-ramen-main/iot/mapapp
 ```
 
-`git clone` でも構いませんが、ファイルを置くだけで動きます。
+更新したいときは、同じコマンドをもう一度実行すれば上書きされます。
+手元にリポジトリがあるなら `scp -r iot/mapapp pi@raspi.local:~/momochari/` でも構いません。
 
-### 4. 地図タイルを用意する
+### 3. 地図タイルを用意する
 
 走行中に圏外になると地図が真っ白になるので、岡山エリアを事前に落としておきます。
 
@@ -131,16 +133,50 @@ scp -r tiles pi@raspi.local:~/momochari/mapapp/
 地図の右下に出る「出典: 国土地理院」は利用条件なので消さないでください。
 広い範囲を一気に落とさないこと、スクリプトが入れている待ち時間も縮めないこと。
 
-### 5. 動かす
+### 4. 動かす
 
 ```bash
-startx /usr/bin/python3 /home/pi/momochari/mapapp/app.py
+startx /home/pi/momochari/mapapp/run.sh
 ```
 
-> `startx ./app.py` とは書けません。`app.py` に shebang も実行権限も付けていないので、
-> 起動するプログラム（`/usr/bin/python3`）から絶対パスで指定してください。
-
 終了は **Esc キー**です（全画面なので閉じるボタンがありません）。
+
+`run.sh` は X の準備をしてからアプリを起動するスクリプトです。やっているのは 3 つだけ:
+
+1. **画面を縦にする**（`xrandr --rotate left`）
+2. **スクリーンセーバーと省電力を切る**（走行中に画面が消えないように）
+3. `app.py` を起動する
+
+回る向きが逆なら:
+
+```bash
+MOMOCHARI_ROTATE=right startx /home/pi/momochari/mapapp/run.sh
+```
+
+指定できるのは `left` / `right` / `inverted` / `normal`（`normal` なら回しません）。
+
+> **なぜ `config.txt` で回さないのか**
+> Raspberry Pi OS も Bookworm 以降は KMS ドライバが標準になったため、
+> `config.txt` の `display_rotate` と `framebuffer_width/height` は**効きません**。
+> 起動スクリプト側で `xrandr` を使うほうが、再起動も要らず確実です。
+
+> **`startx ./app.py` とは書けません。** `app.py` には shebang も実行権限も
+> 付けていないためです。`run.sh` を使わずに直接起動したい場合は
+> `startx /usr/bin/python3 /home/pi/momochari/mapapp/app.py` のように、
+> 起動するプログラムを絶対パスで指定してください。
+
+#### 画面が重いとき
+
+アプリは画面の実サイズいっぱいに描くので、1080x1920（約 200 万画素）だと
+それなりの負荷になります。もたつく場合は、**アプリではなく画面の解像度ごと**
+落とすのが効果的です。`/boot/firmware/cmdline.txt` の行末に半角スペース＋
+
+```
+video=HDMI-A-1:1280x720M@60,rotate=90
+```
+
+を追記して再起動すると、画面が 720x1280 の縦になり描画量が半分以下になります
+（このとき `run.sh` の回転は `MOMOCHARI_ROTATE=normal` で切ってください）。
 
 ---
 
@@ -155,15 +191,11 @@ sudo raspi-config
 
 ### 2. `~/.xinitrc` を作る
 
+画面の回転も省電力の解除も `run.sh` の中でやっているので、呼ぶだけです。
+
 ```sh
 #!/bin/sh
-# 放っておくと画面が省電力で消えてしまうので、切っておく。
-# 自転車で走っている間ずっと点いていてほしいアプリなので、これは必須。
-xset s off
-xset -dpms
-xset s noblank
-
-exec python3 /home/pi/momochari/mapapp/app.py
+exec /home/pi/momochari/mapapp/run.sh
 ```
 
 ```bash
@@ -220,8 +252,8 @@ python3.14 app.py
 ```
 
 - `MOMOCHARI_HANDOFF_DIR` は**端末2と3で同じ値**にすること（データの受け渡し場所なので）
-- 画面サイズを 480×854 にしているのは、本番の 720×1280 だと Mac の画面から
-  はみ出すためです（縦横比は同じ）
+- 画面サイズを 480×854 に指定しているのは、Mac だと既定（＝画面いっぱい）では
+  大きすぎて扱いにくいためです。ラズパイでは指定不要です
 - 終了は **Esc キー**
 
 ---
@@ -230,6 +262,7 @@ python3.14 app.py
 
 | ファイル                  | 役割                                                |
 | ------------------------- | --------------------------------------------------- |
+| `run.sh`                  | 起動スクリプト。画面を縦にして app.py を起動する    |
 | `app.py`                  | 全体の司令塔。1 秒ごとに読んで画面を更新する        |
 | `config.py`               | 設定値。調整はここだけ触れば済む                    |
 | `handoff.py`              | 他のプログラムが書いた JSON を読む                  |
@@ -246,13 +279,15 @@ python3.14 app.py
 `config.py` を読んでください。すべて環境変数でも上書きできます。
 よく触りそうなものだけ挙げると:
 
-| 環境変数                      | 既定値 | 説明                                                |
-| ----------------------------- | ------ | --------------------------------------------------- |
-| `MOMOCHARI_ZOOM`              | 16     | 地図の拡大率。上げると詳しくなるがタイルが 4 倍必要 |
-| `MOMOCHARI_MAP_RATIO`         | 0.65   | 画面の何割を地図にするか                            |
-| `MOMOCHARI_NEAREST_MAX_M`     | 2000   | 何 m 以内の店を「近く」とみなすか                   |
-| `MOMOCHARI_RAMEN_DISPLAY_SEC` | 15     | 計測結果を何秒出しておくか                          |
-| `MOMOCHARI_MOVE_THRESHOLD_M`  | 5      | 何 m 動いたら地図を描き直すか（大きいほど軽い）     |
+| 環境変数                        | 既定値         | 説明                                                |
+| ------------------------------- | -------------- | --------------------------------------------------- |
+| `MOMOCHARI_ROTATE`              | left           | 画面を回す向き（left / right / inverted / normal）  |
+| `MOMOCHARI_SCREEN_WIDTH/HEIGHT` | 画面の実サイズ | ウィンドウの大きさ。既定は全画面なので普段は不要    |
+| `MOMOCHARI_ZOOM`                | 16             | 地図の拡大率。上げると詳しくなるがタイルが 4 倍必要 |
+| `MOMOCHARI_MAP_RATIO`           | 0.65           | 画面の何割を地図にするか                            |
+| `MOMOCHARI_NEAREST_MAX_M`       | 2000           | 何 m 以内の店を「近く」とみなすか                   |
+| `MOMOCHARI_RAMEN_DISPLAY_SEC`   | 15             | 計測結果を何秒出しておくか                          |
+| `MOMOCHARI_MOVE_THRESHOLD_M`    | 5              | 何 m 動いたら地図を描き直すか（大きいほど軽い）     |
 
 ---
 
@@ -272,18 +307,21 @@ API      : https://momochari-ramen.vercel.app/api/shops
 ============================================================
 ```
 
-| 症状                                | 確認すること                                                                                                                                         |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 文字が全部 □□□                      | `sudo apt install fonts-noto-cjk`                                                                                                                    |
-| `No module named 'tkinter'`         | `sudo apt install python3-tk`                                                                                                                        |
-| 地図が背景色のまま                  | タイル未取得。`tools/download_tiles.py` を実行して `tiles/` を送る                                                                                   |
-| 地図が "Access blocked" だらけ      | OSM のタイルを掴んでいる。`tiles/` を消して取り直す（今は地理院タイルを使う設定）                                                                    |
-| ウィンドウが真っ黒（Mac のみ）      | Apple 同梱の Tk 8.5.9 は今の macOS で描画できない。`brew install python-tk@3.14` を入れ `python3.14` で起動                                          |
-| 「GPS を待っています…」から進まない | `cat /run/momochari/gps.json` で `ts` が毎秒変わっているか確認。変わっていなければセンサー側の問題（[docs/device-app.md](../../docs/device-app.md)） |
-| 「お店の一覧を取得中…」から進まない | ネットに繋がっているか。`curl https://momochari-ramen.vercel.app/api/shops`                                                                          |
-| 計測結果が出ない                    | `cat /run/momochari/ramen.json` に `ts` が入っているか。無いと無視されます                                                                           |
-| 動きがカクカク                      | `framebuffer_width/height` を 720x1280 にしたか。`MOMOCHARI_MOVE_THRESHOLD_M` を大きくする                                                           |
-| しばらくすると画面が消える          | `~/.xinitrc` の `xset s off` `xset -dpms`                                                                                                            |
+| 症状                                        | 確認すること                                                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 文字が全部 □□□                              | `sudo apt install fonts-noto-cjk`                                                                                                                    |
+| `No module named 'tkinter'`                 | `sudo apt install python3-tk`                                                                                                                        |
+| 地図が背景色のまま                          | タイル未取得。`tools/download_tiles.py` を実行して `tiles/` を送る                                                                                   |
+| 地図が "Access blocked" だらけ              | OSM のタイルを掴んでいる。`tiles/` を消して取り直す（今は地理院タイルを使う設定）                                                                    |
+| ウィンドウが真っ黒（Mac のみ）              | Apple 同梱の Tk 8.5.9 は今の macOS で描画できない。`brew install python-tk@3.14` を入れ `python3.14` で起動                                          |
+| 「GPS を待っています…」から進まない         | `cat /run/momochari/gps.json` で `ts` が毎秒変わっているか確認。変わっていなければセンサー側の問題（[docs/device-app.md](../../docs/device-app.md)） |
+| 「お店の一覧を取得中…」から進まない         | ネットに繋がっているか。`curl https://momochari-ramen.vercel.app/api/shops`                                                                          |
+| 計測結果が出ない                            | `cat /run/momochari/ramen.json` に `ts` が入っているか。無いと無視されます                                                                           |
+| 動きがカクカク                              | 画面の解像度が高すぎる。`cmdline.txt` の `video=...1280x720M@60,rotate=90` で落とす。`MOMOCHARI_MOVE_THRESHOLD_M` を大きくするのも効く               |
+| `Cannot open /dev/tty0 (Permission denied)` | SSH から `startx` している。`xserver-xorg-legacy` を入れて `/etc/X11/Xwrapper.config` を設定（セットアップ手順1を参照）                              |
+| 画面が横向きのまま                          | `x11-xserver-utils`（`xrandr`）が入っているか。向きが逆なら `MOMOCHARI_ROTATE=right`                                                                 |
+| ウィンドウの周りに黒い余白                  | 古い版を使っている。`curl` で取り直す（今の版は画面サイズを自動判定します）                                                                          |
+| しばらくすると画面が消える                  | `~/.xinitrc` の `xset s off` `xset -dpms`                                                                                                            |
 
 ### それでも遅いとき
 
