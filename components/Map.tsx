@@ -14,8 +14,11 @@ import {
 import ShopDetailPanel from "./ShopDetailPanel";
 import type { Shop, RidePoint, RamenMeasurement } from "@/types";
 
-// 岡山駅の座標
-const OKAYAMA_STATION: [number, number] = [34.6664, 133.9183];
+// 地図を最初に表示する場所。
+// ハッカソンの会場（岡山大学 津島キャンパス）を中心にしている。
+// 会場で開いたときに、目の前の道のデータがすぐ見えるようにするため。
+// 岡山駅まわりのデータも、この縮尺なら画面の下のほうに入る。
+const MAP_CENTER: [number, number] = [34.6885, 133.9215];
 
 // Leaflet のピン画像は「ライブラリと同じ場所に画像ファイルがある」前提で URL を組み立てるため、
 // Next.js のビルドではそのままだと 404 になり、ピンが表示されない。
@@ -81,6 +84,47 @@ function getSpeedColor(value: number | null) {
   return "green"; // 快適
 }
 
+/** 地図に出す走行データの上限。これ以上は重くなるので新しいものから打ち切る */
+const MAX_RIDE_POINTS = 3000;
+
+/**
+ * 走行データを取ってくる。
+ *
+ * === なぜループしているのか ===
+ * Supabase の API は、1 回のリクエストで **1000 行までしか返しません**。
+ * `.limit(3000)` と書いても 1000 行で切られます（設定で決まっている上限のため）。
+ * 黙って切られるので「データを入れたのに地図に出ない」という事故になります。
+ *
+ * そこで `.range(何行目から, 何行目まで)` で続きを取りに行き、
+ * 1000 行に満たない返事が来たら「もう無い」と判断して終わります。
+ */
+async function fetchRidePoints() {
+  const PAGE_SIZE = 1000; // API が 1 回に返せる上限
+  const all: RidePoint[] = [];
+
+  for (let from = 0; from < MAX_RIDE_POINTS; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("ride_points")
+      .select("*")
+      // 新しいものから取る。上限で打ち切られるとき、古いほうが捨てられるようにするため
+      .order("recorded_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("走行データの取得に失敗:", error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+
+    all.push(...data);
+
+    // 1000 行に満たない ＝ これで全部
+    if (data.length < PAGE_SIZE) break;
+  }
+
+  return all;
+}
+
 export default function Map() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [ridePoints, setRidePoints] = useState<RidePoint[]>([]);
@@ -96,11 +140,7 @@ export default function Map() {
       .from("shops")
       .select("*")
       .then(({ data }) => setShops(data ?? []));
-    supabase
-      .from("ride_points")
-      .select("*")
-      .limit(3000)
-      .then(({ data }) => setRidePoints(data ?? []));
+    fetchRidePoints().then(setRidePoints);
     supabase
       .from("ramen_measurements")
       .select("*")
@@ -162,7 +202,7 @@ export default function Map() {
       </div>
 
       <MapContainer
-        center={OKAYAMA_STATION}
+        center={MAP_CENTER}
         zoom={14}
         scrollWheelZoom={true}
         className="z-0 h-full w-full"
