@@ -22,12 +22,20 @@ set -e
 # 出力の名前（HDMI-1 など）は機種や接続で変わるので、決め打ちせず
 # 「つながっている最初の出力」を自動で拾います。
 ROTATE="${MOMOCHARI_ROTATE:-left}"
+echo "[run.sh] MOMOCHARI_ROTATE=$ROTATE"
 
 if [ "$ROTATE" != "normal" ]; then
-    OUTPUT=$(xrandr | awk '/ connected/{print $1; exit}')
-    if [ -n "$OUTPUT" ]; then
-        # 回転に失敗してもアプリは起動させる（横向きでも表示はできるため）
-        xrandr --output "$OUTPUT" --rotate "$ROTATE" || true
+    OUTPUT=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
+
+    # 回転に失敗してもアプリは起動させる（横向きでも表示はできるため）。
+    # ただし黙って失敗すると「指定したのに回らない」の原因が分からなくなるので、
+    # 何をして何が起きたかは必ずログに出す。
+    if [ -z "$OUTPUT" ]; then
+        echo "[run.sh] 接続中の出力が見つかりません（xrandr は使えていますか？）" >&2
+    elif xrandr --output "$OUTPUT" --rotate "$ROTATE"; then
+        echo "[run.sh] $OUTPUT を $ROTATE に回転しました"
+    else
+        echo "[run.sh] $OUTPUT を $ROTATE に回転できませんでした" >&2
     fi
 fi
 
