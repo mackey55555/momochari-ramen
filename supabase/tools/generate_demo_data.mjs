@@ -133,6 +133,55 @@ const SHOPS = [
   ],
 ];
 
+/**
+ * 岡山大学 津島キャンパス周辺（ハッカソン会場のあたり）のお店。
+ *
+ * 配列を分けているのは、計測データを作る順番を変えないため。
+ * 途中に足すと、既に DB に入っている行と値が食い違ってしまう。
+ */
+const CAMPUS_SHOPS = [
+  [
+    "d1000011-0000-4000-8000-000000000011",
+    "ラーメン 津島軒",
+    "醤油",
+    "岡山県岡山市北区津島中1-1-1",
+    34.6868,
+    133.9195,
+  ],
+  [
+    "d1000012-0000-4000-8000-000000000012",
+    "豚骨 岡大前",
+    "豚骨",
+    "岡山県岡山市北区津島南2-4-8",
+    34.6858,
+    133.9212,
+  ],
+  [
+    "d1000013-0000-4000-8000-000000000013",
+    "あっさり中華 半田山",
+    "醤油",
+    "岡山県岡山市北区津島北3-2-5",
+    34.6925,
+    133.9208,
+  ],
+  [
+    "d1000014-0000-4000-8000-000000000014",
+    "味噌らーめん 法界院",
+    "味噌",
+    "岡山県岡山市北区学南町1-6-2",
+    34.6872,
+    133.9298,
+  ],
+  [
+    "d1000015-0000-4000-8000-000000000015",
+    "塩そば 津島東",
+    "塩",
+    "岡山県岡山市北区津島東2-3-7",
+    34.69,
+    133.9265,
+  ],
+];
+
 /** 既にいる 5 店（seed.sql で作ったもの）。計測だけ足す */
 const EXISTING_SHOPS = [
   ["11111111-1111-4111-8111-111111111111", "醤油"],
@@ -254,6 +303,54 @@ const ROUTES = [
     traffic: "low",
     flow: "slow",
   },
+  // --- ここから津島キャンパス周辺 ---
+  {
+    name: "津島キャンパス 周回",
+    points: [
+      [34.6862, 133.9186],
+      [34.6905, 133.9186],
+      [34.6905, 133.9245],
+      [34.6862, 133.9245],
+      [34.6862, 133.9186],
+    ],
+    surface: "normal",
+    traffic: "low",
+    flow: "slow",
+  },
+  {
+    name: "正門前 → 津島交差点 → 国道53号を南へ",
+    points: [
+      [34.6862, 133.9205],
+      [34.684, 133.921],
+      [34.681, 133.9208],
+      [34.678, 133.9206],
+    ],
+    surface: "smooth",
+    traffic: "high",
+    flow: "fast",
+  },
+  {
+    name: "キャンパス北口 → 半田山（上り坂）",
+    points: [
+      [34.6905, 133.921],
+      [34.6935, 133.9215],
+      [34.696, 133.92],
+    ],
+    surface: "rough",
+    traffic: "low",
+    flow: "stop",
+  },
+  {
+    name: "キャンパス東口 → 法界院駅",
+    points: [
+      [34.689, 133.9245],
+      [34.6875, 133.929],
+      [34.686, 133.931],
+    ],
+    surface: "rough",
+    traffic: "mid",
+    flow: "slow",
+  },
 ];
 
 // 道の性格ごとの値の範囲。
@@ -316,28 +413,29 @@ say();
 
 // --- お店 -----------------------------------------------------
 say("-- ------------------------------------------------------------");
-say(`-- ラーメン店（架空の ${SHOPS.length} 件。岡山駅から半径 2km 以内）`);
+say(
+  `-- ラーメン店（架空の ${SHOPS.length + CAMPUS_SHOPS.length} 件。岡山駅・津島キャンパス周辺）`,
+);
 say("-- ------------------------------------------------------------");
 say("insert into shops (id, name, style, address, lat, lng) values");
 say(
-  SHOPS.map(
-    ([id, name, style, address, lat, lng]) =>
-      `  (${q(id)}, ${q(name)}, ${q(style)}, ${q(address)}, ${lat.toFixed(6)}, ${lng.toFixed(6)})`,
-  ).join(",\n") + "\non conflict (id) do nothing;",
+  [...SHOPS, ...CAMPUS_SHOPS]
+    .map(
+      ([id, name, style, address, lat, lng]) =>
+        `  (${q(id)}, ${q(name)}, ${q(style)}, ${q(address)}, ${lat.toFixed(6)}, ${lng.toFixed(6)})`,
+    )
+    .join(",\n") + "\non conflict (id) do nothing;",
 );
 say();
 
 // --- ラーメン計測 ---------------------------------------------
 const measurementRows = [];
-const allShops = [
-  ...SHOPS.map(([id, , style]) => [id, style]),
-  ...EXISTING_SHOPS,
-];
 
 // 計測日時は「発表の直前 10 日間」に散らす
 const measuredBase = Date.parse("2026-09-09T02:00:00.000Z");
 
-for (const [shopId, style] of allShops) {
+/** お店 1 件分の計測を 2〜4 件作る */
+function addMeasurements(shopId, style) {
   const range = STYLE_RANGE[style] ?? STYLE_RANGE["その他"];
   const count = 2 + Math.floor(random() * 3); // 2〜4 件
 
@@ -357,9 +455,23 @@ for (const [shopId, style] of allShops) {
   }
 }
 
+// まず岡山駅まわりの店（ここまでは前回と同じ値になる）
+for (const [id, , style] of SHOPS) addMeasurements(id, style);
+for (const [id, style] of EXISTING_SHOPS) addMeasurements(id, style);
+
+// === 津島キャンパスの店は「乱数を巻き戻して」から作る ===
+//
+// 乱数は 1 本の流れで、呼んだ回数だけ先に進みます。
+// ここで普通に足すと、あとで作る走行データの値まで全部ずれてしまい、
+// すでに DB に入っている行と食い違います。
+// キャンパス分を作る前の状態を覚えておいて、作り終えたら戻します。
+const seedBeforeCampus = seed;
+for (const [id, , style] of CAMPUS_SHOPS) addMeasurements(id, style);
+seed = seedBeforeCampus;
+
 say("-- ------------------------------------------------------------");
 say(
-  `-- ラーメン計測（全 ${allShops.length} 店に 2〜4 件ずつ、計 ${measurementRows.length} 件）`,
+  `-- ラーメン計測（全 ${SHOPS.length + EXISTING_SHOPS.length + CAMPUS_SHOPS.length} 店に 2〜4 件ずつ、計 ${measurementRows.length} 件）`,
 );
 say("-- ------------------------------------------------------------");
 say("-- ジャンルごとに塩分の範囲を変えているので、地図のピンの色が");
