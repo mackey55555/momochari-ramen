@@ -28,11 +28,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config  # noqa: E402
 
-# 岡山駅のまわりを、半径 300m くらいでゆっくり回る
-CENTER_LAT = 34.6664
-CENTER_LNG = 133.9183
-RADIUS_M = 300.0
-LAP_SEC = 180.0  # 一周にかかる時間
+# どこを回るか。既定は岡山駅のまわりを半径 300m でゆっくり一周。
+#
+# 岡山大学 津島キャンパス周辺で試したいときは、環境変数で中心を移せます:
+#     MOMOCHARI_FAKE_LAT=34.6920 MOMOCHARI_FAKE_LNG=133.9180 \
+#       MOMOCHARI_HANDOFF_DIR=./_fake python3 tools/fake_sensors.py
+#
+# キャンパス周辺の店はシードデータ（supabase/seed.sql）に入れてあるので、
+# 半径を 600m くらいに広げると「近いお店」が何度か入れ替わるのが見られます。
+CENTER_LAT = float(os.environ.get("MOMOCHARI_FAKE_LAT", "34.6664"))
+CENTER_LNG = float(os.environ.get("MOMOCHARI_FAKE_LNG", "133.9183"))
+RADIUS_M = float(os.environ.get("MOMOCHARI_FAKE_RADIUS_M", "300"))
+LAP_SEC = float(os.environ.get("MOMOCHARI_FAKE_LAP_SEC", "180"))  # 一周にかかる時間
 
 # Enter を押すたびに、この順で出る
 SAMPLE_RESULTS = [
