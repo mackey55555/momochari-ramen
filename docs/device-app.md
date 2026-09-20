@@ -28,11 +28,28 @@
 | センサーの API 送信プログラム | `/run/momochari/gps.json`   | GPS を取得するたび（1 秒ごと） |
 | 塩分センサーの判定プログラム  | `/run/momochari/ramen.json` | 判定が出たときだけ             |
 
-フォルダは起動時に作ってください（後述の `writeHandoff` の中でやっています）。
+### ★最初に一度だけ：フォルダを作れるようにする
 
-```javascript
-fs.mkdirSync("/run/momochari", { recursive: true });
+**これをやらないと、プログラム側からはフォルダを作れません。**
+
+`/run` は root 所有（`drwxr-xr-x root root`）なので、`pi` ユーザーで動く
+プログラムから `mkdir` すると `EACCES: permission denied` になります。
+
+```bash
+echo 'd /run/momochari 0755 pi pi -' | sudo tee /etc/tmpfiles.d/momochari.conf
+sudo systemd-tmpfiles --create
+ls -ld /run/momochari
 ```
+
+`drwxr-xr-x ... pi pi ... /run/momochari` と出れば成功です。
+
+`sudo mkdir /run/momochari` でも一時的には作れますが、**`/run` は tmpfs なので
+再起動すると消えます**。上のように `/etc/tmpfiles.d/` に登録しておけば、
+起動のたびに自動で作り直されます。
+
+> プログラムを root で動かしている場合（`systemd` の `User=` を指定していない等）は
+> この手順は不要ですが、**やっておいて損はありません**。実行ユーザーを変えたときに
+> 静かに壊れるのを防げます。
 
 ### なぜ `/run/` なのか
 
@@ -163,6 +180,7 @@ const fs = require("fs");
 const path = require("path");
 
 const HANDOFF_DIR = "/run/momochari";
+let handoffWarned = false;
 
 /** 地図アプリにデータを渡す。失敗しても本業（API送信）は止めない */
 function writeHandoff(name, data) {
@@ -173,8 +191,18 @@ function writeHandoff(name, data) {
     fs.writeFileSync(tmp, JSON.stringify(data));
     fs.renameSync(tmp, filePath);
   } catch (error) {
-    // 画面表示のためのオマケなので、書けなくても黙って続行する。
+    // 画面表示のためのオマケなので、書けなくても本業は続行する。
     // ここで例外を投げると、地図アプリのせいで API 送信が止まってしまう。
+    //
+    // ただし完全に黙ると「書けているつもり」で進んでしまうので、
+    // 最初の 1 回だけ理由を出す（毎秒出すとログが埋まるため）。
+    if (!handoffWarned) {
+      handoffWarned = true;
+      console.error(`[handoff] ${name} を書けませんでした: ${error.message}`);
+      console.error(
+        "[handoff] EACCES なら /etc/tmpfiles.d/momochari.conf の作成を忘れていないか確認（「1. 書く場所」を参照）",
+      );
+    }
   }
 }
 ```
@@ -215,9 +243,11 @@ Python で書かれたプログラムに足す場合）。
 ```python
 import json
 import os
+import sys
 from datetime import datetime, timezone
 
 HANDOFF_DIR = "/run/momochari"
+_warned = False
 
 
 def write_handoff(name, data):
@@ -229,8 +259,12 @@ def write_handoff(name, data):
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         os.replace(tmp, path)
-    except OSError:
-        pass
+    except OSError as error:
+        # 本業は止めない。ただし最初の 1 回だけ理由を出す
+        global _warned
+        if not _warned:
+            _warned = True
+            print(f"[handoff] {name} を書けませんでした: {error}", file=sys.stderr)
 
 
 def now_iso():
@@ -288,6 +322,20 @@ console.log("書き込みました");
 ---
 
 ## 6. よくある質問
+
+**Q. `/run/momochari/` にファイルができない**
+まずフォルダがあるか見てください。
+
+```bash
+ls -ld /run/momochari
+```
+
+「そのようなファイルやディレクトリはありません」なら、
+「1. 書く場所」の `/etc/tmpfiles.d/momochari.conf` の作成がまだです。
+`/run` は root 所有なので、`pi` で動くプログラムからは自力でフォルダを作れません。
+
+フォルダはあるのにファイルができない場合は、プログラムの標準エラー出力に
+`[handoff] ... を書けませんでした` が出ていないか確認してください。
 
 **Q. 地図アプリが起動していないときに書いても大丈夫？**
 はい。ファイルが置いてあるだけの状態になります。アプリを起動したら読み始めます。
