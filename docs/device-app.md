@@ -28,10 +28,10 @@
 | センサーの API 送信プログラム | `/run/momochari/gps.json`   | GPS を取得するたび（1 秒ごと） |
 | 塩分センサーの判定プログラム  | `/run/momochari/ramen.json` | 判定が出たときだけ             |
 
-フォルダは起動時に作ってください。
+フォルダは起動時に作ってください（後述の `writeHandoff` の中でやっています）。
 
-```python
-os.makedirs("/run/momochari", exist_ok=True)
+```javascript
+fs.mkdirSync("/run/momochari", { recursive: true });
 ```
 
 ### なぜ `/run/` なのか
@@ -90,33 +90,52 @@ os.makedirs("/run/momochari", exist_ok=True)
 
 ## 3. 守っていただきたいこと 3 つ
 
-### ① `os.replace()` で差し替える（いちばん重要）
+### ① `renameSync` で差し替える（いちばん重要）
 
-```python
-import json, os
+```javascript
+const fs = require("fs");
 
-def write_json(path, data):
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
-    os.replace(tmp, path)   # ← これ
+function writeJson(filePath, data) {
+  const tmp = filePath + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(data));
+  fs.renameSync(tmp, filePath); // ← これ
+}
 ```
 
-**直接 `open(path, "w")` で上書きしないでください。**
+**`fs.writeFileSync(filePath, ...)` で直接上書きしないでください。**
 
-書いている途中の一瞬、ファイルは「`{"lat": 34.6` まで書けていて、そこで切れている」
+書いている途中の一瞬、ファイルは「`{"lat":34.6` まで書けていて、そこで切れている」
 という壊れた状態になります。運悪くそのタイミングで地図アプリが読むと、
 JSON として壊れたものを読むことになります。
 
-一時ファイルに書いてから `os.replace()` で差し替えると、この「途中の状態」が
-外から見えなくなります。読み手からは、常に**完全な新しい JSON** か
+一時ファイルに書いてから `fs.renameSync()` で差し替えると、この「途中の状態」が
+外から見えなくなります（同じファイルシステム内の rename は原子的な操作です）。
+読み手からは、常に**完全な新しい JSON** か
 **完全なひとつ前の JSON** のどちらかしか見えません。
 
 1 秒に 1 回の書き込みを何時間も続けるので、確率の低い事故でも必ず踏みます。
 
-### ② `ts` を必ず入れる
+### ② 非同期版（`fs.promises` / `await`）を使わない
+
+`writeFileSync` / `renameSync` の **Sync 版**を使ってください。
+
+非同期にすると、1 秒ごとの書き込みが重なったときに**完了の順番が入れ替わる**
+可能性があります。「新しい位置を書いた直後に、古い位置の書き込みが後から完了する」と、
+地図が一瞬前の場所に戻ります。
+
+書き込むのは数百バイトで、しかも `/run/` は RAM 上なので、
+同期処理でもコストは実質ゼロです。素直に Sync を使うのが正解です。
+
+### ③ `ts` を必ず入れる
 
 省略しないでください。地図アプリはこれが無いと動けません。
+
+```javascript
+new Date().toISOString(); // → "2026-09-19T01:00:00.123Z"
+```
+
+`docs/api.md` で API に送っているのと同じ ISO 8601 形式がそのまま得られます。
+`2026/09/19 10:00:00` のように自分で組み立てると **9 時間ずれる事故**が起きます。
 
 **GPS の場合** — 「測位できているか」の判断に使います。
 `ts` が 5 秒以上古くなったら「ロスト」とみなし、地図を止めて自分マーカーを灰色にします。
@@ -133,24 +152,65 @@ JSON として壊れたものを読むことになります。
 同じ判定が続くと `text` が変わらないので、**中身を比べていると 2 杯目に気づけません**。
 `ts` を見ていれば確実に拾えます。
 
-### ③ 時刻は ISO 8601 で
-
-```python
-from datetime import datetime, timezone
-
-def now_iso():
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    # → "2026-09-19T01:00:00.123456Z"
-```
-
-`docs/api.md` で API に送っているのと同じ形式なので、
-すでにある関数をそのまま使い回せるはずです。
-
 ---
 
 ## 4. コピーして使える追加ぶん
 
 既存のプログラムに、この関数と呼び出し 1 行を足すだけです。
+
+```javascript
+const fs = require("fs");
+const path = require("path");
+
+const HANDOFF_DIR = "/run/momochari";
+
+/** 地図アプリにデータを渡す。失敗しても本業（API送信）は止めない */
+function writeHandoff(name, data) {
+  try {
+    fs.mkdirSync(HANDOFF_DIR, { recursive: true });
+    const filePath = path.join(HANDOFF_DIR, name);
+    const tmp = filePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(data));
+    fs.renameSync(tmp, filePath);
+  } catch (error) {
+    // 画面表示のためのオマケなので、書けなくても黙って続行する。
+    // ここで例外を投げると、地図アプリのせいで API 送信が止まってしまう。
+  }
+}
+```
+
+**GPS 側** — 位置を取得した直後（今 API に送っているあたり）に 1 行:
+
+```javascript
+writeHandoff("gps.json", { lat, lng, ts: new Date().toISOString() });
+```
+
+**塩分側** — 判定が出た直後に 1 行:
+
+```javascript
+writeHandoff("ramen.json", {
+  text: judgementText,
+  ts: new Date().toISOString(),
+});
+```
+
+`try` で囲んであるのがポイントです。ディスクが一杯でも権限が無くても、
+**既存の API 送信が巻き添えで止まることはありません**。
+
+日本語は `JSON.stringify` の既定でそのまま書き込まれるので、オプションは不要です。
+
+> **`package.json` に `"type": "module"` がある場合**（`import` を使っているプロジェクト）は、
+> 先頭の 2 行だけ差し替えてください。中身は同じです。
+>
+> ```javascript
+> import fs from "node:fs";
+> import path from "node:path";
+> ```
+
+### Python で書いている場合
+
+同じことを Python でやるならこうです（`iot/send_accel.py` のように
+Python で書かれたプログラムに足す場合）。
 
 ```python
 import json
@@ -170,8 +230,6 @@ def write_handoff(name, data):
             json.dump(data, f, ensure_ascii=False)
         os.replace(tmp, path)
     except OSError:
-        # 画面表示のためのオマケなので、書けなくても黙って続行する。
-        # ここで例外を上げると、地図アプリのせいで API 送信が止まってしまう。
         pass
 
 
@@ -179,20 +237,13 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 ```
 
-**GPS 側** — 位置を取得した直後（今 API に送っているあたり）に 1 行:
-
 ```python
 write_handoff("gps.json", {"lat": lat, "lng": lng, "ts": now_iso()})
-```
-
-**塩分側** — 判定が出た直後に 1 行:
-
-```python
 write_handoff("ramen.json", {"text": judgement_text, "ts": now_iso()})
 ```
 
-`try` で囲んであるのがポイントです。ディスクが一杯でも権限が無くても、
-**既存の API 送信が巻き添えで止まることはありません**。
+Python では `ensure_ascii=False` を付けないと日本語が `\u3053...` に化けます。
+`os.replace()` が JavaScript の `fs.renameSync()` にあたります。
 
 ---
 
@@ -215,6 +266,24 @@ watch -n 1 cat /run/momochari/gps.json
 ```
 受け渡し : /run/momochari にあるファイル: gps.json, ramen.json
 ```
+
+### センサーを繋ぐ前に試す
+
+塩分センサーが無くても、これだけで画面に出るところまで確認できます。
+
+```bash
+node -e '
+const fs=require("fs");
+fs.mkdirSync("/run/momochari",{recursive:true});
+const p="/run/momochari/ramen.json";
+fs.writeFileSync(p+".tmp",JSON.stringify({text:"テスト表示",ts:new Date().toISOString()}));
+fs.renameSync(p+".tmp",p);
+console.log("書き込みました");
+'
+```
+
+地図アプリが動いていれば、画面下部に「テスト表示」が 15 秒出て、
+そのあと「近くのお店」の表示に戻ります。
 
 ---
 
